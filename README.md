@@ -13,6 +13,9 @@ Open protocol — CC0 — no reference implementation required.
 - [MORPHA specification](./MORPHA.md)
 - [Version 0.1](./versions/0.1.md)
 
+## Academic reference
+See /academic for abstract and citation.
+
 ## Governance
 MORPHA has no central authority. Compatibility is defined by structure, not consensus.
 
