@@ -1,22 +1,52 @@
-# MORPHA
+Project
 
-An open protocol for non-verbal symbolic communication.
+Symbol–Sound Language
+A WebGL system for communicating meaning through morphing glyphs and sound influence.
 
-MORPHA defines a way to transmit meaning through continuous transformation of form, influenced by sound and silence.
+This is not a visualizer.
+It is a symbolic instrument.
 
-It does not encode information. It encodes how something is held.
+Requirements
 
-## Status
-Open protocol — CC0 — no reference implementation required.
+- modern browser with WebGL
+- microphone access
+- Google Drive account (optional for saving)
 
-## Read the protocol
-- [MORPHA specification](./MORPHA.md)
-- [Version 0.1](./versions/0.1.md)
+Install
+```bash
+npm install
+npm run dev
+```
+Local dev uses Vite for fast shader reload.
 
-## Academic reference
-See /academic for abstract and citation.
+Build
+```bash
+npm run build
+```
+Outputs static assets suitable for:
 
-## Governance
-MORPHA has no central authority. Compatibility is defined by structure, not consensus.
+- Netlify
+- Vercel
+- static hosting
+- Electron wrapper
 
-If it feels unclear, it is working.
+Folder responsibilities (short)
+
+- `src/core` → time, state, lifecycle
+- `src/glyphs` → symbolic language engine
+- `src/audio` → hearing + silence
+- `src/render` → WebGL + shaders
+- `src/ritual` → experience logic
+- `src/export` → capture + packaging
+- `src/storage` → Google Drive integration
+
+If something feels wrong, it is probably in ritual or glyphs, not render.
+
+Philosophy (important to keep)
+
+- never cut, only morph
+- silence is input
+- controls are influence, not command
+- save moments, not sessions
+
+If you break these, the system becomes a toy.
