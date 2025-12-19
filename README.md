@@ -21,6 +21,7 @@ This implementation is currently under development. It serves as a practical gui
 
 -   Node.js (v18 or higher)
 -   npm
+-   Google Cloud Platform account (for Google Drive integration)
 
 ### Installation
 
@@ -29,10 +30,29 @@ This implementation is currently under development. It serves as a practical gui
     git clone https://github.com/kajica2/morpha-protocol.git
     cd morpha-protocol
     ```
+
 2.  Install dependencies:
     ```bash
     npm install
     ```
+
+3.  Set up environment variables:
+    ```bash
+    cp .env.example .env
+    ```
+
+    Then edit `.env` and add your Google API credentials:
+
+    **Getting Google API Credentials:**
+    - Go to [Google Cloud Console](https://console.cloud.google.com/)
+    - Create a new project or select an existing one
+    - Enable the Google Drive API
+    - Go to **Credentials** → **Create Credentials** → **OAuth client ID**
+    - Choose **Web application**
+    - Add authorized JavaScript origins:
+      - For local: `http://localhost:5173`
+      - For production: `https://your-domain.com`
+    - Copy your Client ID and API Key into `.env`
 
 ### Running the Development Server
 

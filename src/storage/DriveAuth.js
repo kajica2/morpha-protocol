@@ -1,8 +1,13 @@
 // src/storage/DriveAuth.js
 
-// IMPORTANT: Replace with your actual Google API Client ID and API Key
-const CLIENT_ID = '176960048944-f55lt4j34icigakdrvbbe3fefqa51mqo.apps.googleusercontent.com';
-const API_KEY = 'AIzaSyDzBVk5N3xjBzowsau_AZb-L4XF-VXt9Mw';
+// Google API Configuration from environment variables
+const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
+
+// Validate configuration
+if (!CLIENT_ID || !API_KEY) {
+  console.error('Missing Google API credentials. Please check your .env file.');
+}
 
 // Discovery docs for APIs used
 const DISCOVERY_DOCS = [
