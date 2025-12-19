@@ -1,52 +1,71 @@
-Project
+# MORPHA — Reference Implementation
 
-Symbol–Sound Language
-A WebGL system for communicating meaning through morphing glyphs and sound influence.
+This repository contains the official reference implementation for the MORPHA protocol, a system for non-verbal symbolic communication through morphing glyphs and sound influence.
 
-This is not a visualizer.
-It is a symbolic instrument.
+The full protocol specification can be found in the `/protocol` directory.
 
-Requirements
+## Status
 
-- modern browser with WebGL
-- microphone access
-- Google Drive account (optional for saving)
+This implementation is currently under development. It serves as a practical guide and testbed for the concepts defined in the MORPHA protocol.
 
-Install
+## Tech Stack
+
+-   **Vite:** For a fast and modern development environment.
+-   **Three.js:** To manage the WebGL rendering context.
+-   **GLSL:** Custom shaders for the glyph morphing and rendering logic.
+-   **Vanilla JavaScript:** No heavy frameworks, keeping the core logic transparent.
+
+## Getting Started
+
+### Prerequisites
+
+-   Node.js (v18 or higher)
+-   npm
+
+### Installation
+
+1.  Clone the repository:
+    ```bash
+    git clone https://github.com/kajica2/morpha-protocol.git
+    cd morpha-protocol
+    ```
+2.  Install dependencies:
+    ```bash
+    npm install
+    ```
+
+### Running the Development Server
+
+To start the local development server with hot-reloading:
+
 ```bash
-npm install
 npm run dev
 ```
-Local dev uses Vite for fast shader reload.
 
-Build
-```bash
-npm run build
-```
-Outputs static assets suitable for:
+The application will be available at `http://localhost:5173`.
 
-- Netlify
-- Vercel
-- static hosting
-- Electron wrapper
+## Project Structure
 
-Folder responsibilities (short)
+-   `/protocol`: Contains all markdown files specifying the MORPHA open protocol, its governance, and extensions.
+-   `/public`: Static assets.
+-   `/src`: The main application source code.
+    -   `/src/core`: Core engine, state management, and clock.
+    -   `/src/glyphs`: The symbolic language engine (generation, resampling, queueing).
+    -   `/src/audio`: Microphone input, sound analysis, and silence detection.
+    -   `/src/render`: Three.js/WebGL setup, scene management, and mesh/material handling.
+    -   `/src/ritual`: The user experience and interaction logic.
+    -   `/src/export`: Canvas capture and artifact packaging.
+    -   `/src/storage`: Integration with external storage (e.g., Google Drive).
+    -   `/src/utils`: Shared utility functions.
+-   `/shaders`: GLSL vertex and fragment shaders.
+-   `/data`: Static data for glyphs, phonemes, etc.
+-   `/scripts`: Node.js scripts for build-time tasks (e.g., `build-glyphs.js`).
 
-- `src/core` → time, state, lifecycle
-- `src/glyphs` → symbolic language engine
-- `src/audio` → hearing + silence
-- `src/render` → WebGL + shaders
-- `src/ritual` → experience logic
-- `src/export` → capture + packaging
-- `src/storage` → Google Drive integration
+## Philosophy
 
-If something feels wrong, it is probably in ritual or glyphs, not render.
+This implementation adheres to the core principles of the MORPHA protocol:
 
-Philosophy (important to keep)
-
-- never cut, only morph
-- silence is input
-- controls are influence, not command
-- save moments, not sessions
-
-If you break these, the system becomes a toy.
+-   **Never cut, only morph:** All transitions are continuous.
+-   **Silence is input:** Absence of sound is a meaningful signal that influences the system.
+-   **Influence, not command:** User interactions are treated as environmental pressures, not direct controls.
+-   **Save moments, not sessions:** The goal is to create durable, personal artifacts from ephemeral interactions.
