@@ -24,10 +24,9 @@ let canvasCapture;
 let longPressTimer = null;
 const LONG_PRESS_DURATION = 1000; // 1 second for long press
 
-const entryRitual = document.getElementById('entry-ritual');
 const authButton = document.createElement('button');
 authButton.textContent = 'Link Google Drive';
-authButton.style.cssText = 'position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); padding: 10px 20px; background: #333; color: #e6e6e6; border: none; cursor: pointer; opacity: 0.7;';
+authButton.style.cssText = 'position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); padding: 10px 20px; background: #333; color: #e6e6e6; border: none; cursor: pointer; opacity: 0.7; z-index: 200;';
 authButton.onclick = async () => {
   try {
     await handleAuthClick();
@@ -43,8 +42,10 @@ authButton.onclick = async () => {
 document.body.appendChild(authButton);
 authButton.style.display = 'none';
 
-entryRitual.addEventListener('click', async () => {
-  entryRitual.style.display = 'none';
+// Listen for the ritual start event from the landing page
+window.addEventListener('morpha:start', async () => {
+  console.log("MORPHA ritual starting...");
+
   userFingerprint = loadUserFingerprint(); // Load fingerprint at start
 
   // Initialize Google Auth and show button if not authorized

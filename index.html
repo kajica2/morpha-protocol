@@ -3,33 +3,285 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MORPHA</title>
+    <title>MORPHA — A Protocol for Non-Verbal Communication</title>
+    <meta name="description" content="An open protocol for symbolic communication through transformation, sound, and silence.">
     <style>
-      body { margin: 0; background: #0e0e0e; color: #e6e6e6; font-family: serif; }
-      canvas { display: block; }
-      .entry {
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: #0e0e0e;
+        color: #e6e6e6;
+        font-family: Georgia, 'Times New Roman', serif;
+        overflow: hidden;
+      }
+
+      /* Landing page (shown before ritual) */
+      #landing {
         position: absolute;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        cursor: pointer;
         opacity: 0;
-        animation: fadeIn 3s 1s forwards;
+        animation: fadeIn 3s 0.5s forwards;
+        z-index: 100;
+        padding: 2rem;
+        text-align: center;
       }
+
+      #landing.hidden {
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 1.5s ease-out;
+      }
+
+      .title {
+        font-size: 2.5rem;
+        font-weight: normal;
+        letter-spacing: 0.12em;
+        margin: 0 0 3rem 0;
+        opacity: 0.95;
+      }
+
+      .statement {
+        max-width: 640px;
+        margin: 0 auto 3rem;
+        line-height: 1.8;
+        font-size: 1.15rem;
+        opacity: 0.8;
+      }
+
+      .statement p {
+        margin: 1.5rem 0;
+      }
+
+      .enter-button {
+        background: none;
+        border: 1px solid rgba(230, 230, 230, 0.3);
+        color: #e6e6e6;
+        padding: 1rem 3rem;
+        font-family: inherit;
+        font-size: 1.1rem;
+        cursor: pointer;
+        letter-spacing: 0.08em;
+        opacity: 0.7;
+        transition: opacity 0.3s, border-color 0.3s;
+        margin: 2rem 0;
+      }
+
+      .enter-button:hover {
+        opacity: 1;
+        border-color: rgba(230, 230, 230, 0.6);
+      }
+
+      .protocol-links {
+        margin: 3rem 0 0 0;
+        opacity: 0.5;
+        font-size: 0.95rem;
+      }
+
+      .protocol-links a {
+        color: #e6e6e6;
+        text-decoration: none;
+        margin: 0 1rem;
+        opacity: 0.7;
+        transition: opacity 0.3s;
+      }
+
+      .protocol-links a:hover {
+        opacity: 1;
+      }
+
+      .quiet-footer {
+        position: absolute;
+        bottom: 2rem;
+        left: 0;
+        right: 0;
+        text-align: center;
+        opacity: 0.3;
+        font-size: 0.9rem;
+        letter-spacing: 0.05em;
+      }
+
+      /* Ritual experience (WebGL canvas) */
+      #app {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        transition: opacity 2s ease-in;
+      }
+
+      #app.active {
+        opacity: 1;
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      /* Save indicator */
+      .save-indicator {
+        position: absolute;
+        bottom: 2rem;
+        right: 2rem;
+        opacity: 0;
+        font-size: 2rem;
+        pointer-events: none;
+        transition: opacity 0.3s;
+      }
+
+      .save-indicator.show {
+        opacity: 0.4;
+      }
+
+      /* Instructions overlay (fades after a moment) */
+      .instructions {
+        position: absolute;
+        bottom: 3rem;
+        left: 50%;
+        transform: translateX(-50%);
+        opacity: 0;
+        font-size: 0.95rem;
+        letter-spacing: 0.05em;
+        text-align: center;
+        pointer-events: none;
+        transition: opacity 1s;
+      }
+
+      .instructions.show {
+        opacity: 0.4;
+      }
+
       @keyframes fadeIn {
         to { opacity: 1; }
+      }
+
+      @media (max-width: 768px) {
+        .title {
+          font-size: 1.8rem;
+        }
+        .statement {
+          font-size: 1rem;
+        }
+        .protocol-links {
+          display: flex;
+          flex-direction: column;
+          gap: 0.8rem;
+        }
       }
     </style>
   </head>
   <body>
-    <div id="app"></div>
-    <div class="entry" id="entry-ritual">
-      <p>enter quietly</p>
+    <!-- Landing Page -->
+    <div id="landing">
+      <h1 class="title">MORPHA</h1>
+
+      <div class="statement">
+        <p>An open protocol for non-verbal symbolic communication</p>
+        <p>
+          MORPHA does not encode information.<br>
+          It encodes how something is held.
+        </p>
+        <p>
+          Meaning emerges through transformation,<br>
+          influenced by sound and silence.
+        </p>
+      </div>
+
+      <button class="enter-button" id="enter-ritual">enter quietly</button>
+
+      <div class="protocol-links">
+        <a href="/protocol/MORPHA.md" target="_blank">read the protocol</a>
+        <a href="https://github.com/kajica2/morpha-protocol" target="_blank">source</a>
+      </div>
+
+      <div class="quiet-footer">
+        if it feels unclear, it is working
+      </div>
     </div>
+
+    <!-- Ritual Experience -->
+    <div id="app"></div>
+
+    <!-- Save indicator -->
+    <div class="save-indicator" id="save-indicator">◦</div>
+
+    <!-- Instructions (shown briefly after entering) -->
+    <div class="instructions" id="instructions">
+      make a sound or stay silent<br>
+      <span style="opacity: 0.6; font-size: 0.85rem;">long press to save</span>
+    </div>
+
     <script type="module" src="/src/main.js"></script>
+    <script>
+      // Handle landing page transition
+      document.getElementById('enter-ritual').addEventListener('click', () => {
+        const landing = document.getElementById('landing');
+        const app = document.getElementById('app');
+        const instructions = document.getElementById('instructions');
+
+        // Hide landing
+        landing.classList.add('hidden');
+
+        // Show app
+        setTimeout(() => {
+          app.classList.add('active');
+
+          // Show instructions briefly
+          setTimeout(() => {
+            instructions.classList.add('show');
+            setTimeout(() => {
+              instructions.classList.remove('show');
+            }, 5000);
+          }, 2000);
+        }, 500);
+
+        // Trigger the actual MORPHA ritual start
+        window.dispatchEvent(new CustomEvent('morpha:start'));
+      });
+
+      // Show save indicator on long press start
+      let saveIndicatorTimeout;
+      document.addEventListener('mousedown', () => {
+        const indicator = document.getElementById('save-indicator');
+        saveIndicatorTimeout = setTimeout(() => {
+          indicator.classList.add('show');
+        }, 800);
+      });
+
+      document.addEventListener('mouseup', () => {
+        clearTimeout(saveIndicatorTimeout);
+        const indicator = document.getElementById('save-indicator');
+        setTimeout(() => {
+          indicator.classList.remove('show');
+        }, 300);
+      });
+
+      document.addEventListener('touchstart', () => {
+        const indicator = document.getElementById('save-indicator');
+        saveIndicatorTimeout = setTimeout(() => {
+          indicator.classList.add('show');
+        }, 800);
+      });
+
+      document.addEventListener('touchend', () => {
+        clearTimeout(saveIndicatorTimeout);
+        const indicator = document.getElementById('save-indicator');
+        setTimeout(() => {
+          indicator.classList.remove('show');
+        }, 300);
+      });
+    </script>
   </body>
 </html>
