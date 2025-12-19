@@ -1,0 +1,9 @@
+{
+  "a": { "glyph": "circle.svg", "family": "flow", "semanticWeight": { "resistance": 0.4, "fadeTime": 6.0, "warpAffinity": 0.7, "silenceAffinity": 0.3 } },
+  "e": { "glyph": "diamond.svg", "family": "flow", "semanticWeight": { "resistance": 0.5, "fadeTime": 5.5, "warpAffinity": 0.6, "silenceAffinity": 0.4 } },
+  "i": { "glyph": "square.svg", "family": "anchor", "semanticWeight": { "resistance": 0.7, "fadeTime": 7.0, "warpAffinity": 0.5, "silenceAffinity": 0.5 } },
+  "o": { "glyph": "circle.svg", "family": "void", "semanticWeight": { "resistance": 0.3, "fadeTime": 8.0, "warpAffinity": 0.4, "silenceAffinity": 0.6 } },
+  "u": { "glyph": "diamond.svg", "family": "echo", "semanticWeight": { "resistance": 0.6, "fadeTime": 6.5, "warpAffinity": 0.8, "silenceAffinity": 0.2 } },
+  "b": { "glyph": "square.svg", "family": "fracture", "semanticWeight": { "resistance": 0.8, "fadeTime": 4.0, "warpAffinity": 0.9, "silenceAffinity": 0.1 } },
+  "p": { "glyph": "diamond.svg", "family": "fracture", "semanticWeight": { "resistance": 0.9, "fadeTime": 3.5, "warpAffinity": 1.0, "silenceAffinity": 0.0 } }
+}
