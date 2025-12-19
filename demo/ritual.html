@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSL: First Ritual</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', monospace; }
+        canvas { display: block; }
+        
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .message {
+            color: #666; 
+            letter-spacing: 0.3em;
+            font-size: 14px;
+            text-transform: uppercase;
+            opacity: 0;
+            transition: opacity 2s ease-in-out;
+            text-align: center;
+            max-width: 80%;
+            line-height: 1.6;
+        }
+
+        .visible { opacity: 1; }
+        .pulse { animation: breathe 4s infinite ease-in-out; }
+
+        @keyframes breathe {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.8; }
+        }
+
+        #mic-permission {
+            pointer-events: auto;
+            cursor: pointer;
+            border: 1px solid #333;
+            padding: 10px 20px;
+            margin-top: 20px;
+            color: #888;
+            background: rgba(0,0,0,0.8);
+            display: none;
+        }
+        #mic-permission:hover { color: #fff; border-color: #666; }
+
+    </style>
+</head>
+<body>
+    
+    <div id="ui-layer">
+        <div id="msg-attune" class="message visible pulse">Disturb the void to begin</div>
+        <div id="msg-listen" class="message">The void listens</div>
+        <div id="mic-permission" class="message">Allow Sound Input & Output</div>
+    </div>
+
+    <!-- 1. BACKGROUND FLUID SHADER (The Substrate) -->
+    <script id="fluidFragmentShader" type="x-shader/x-fragment">
+        precision highp float;
+
+        uniform float uTime;
+        uniform vec2 uResolution;
+        uniform vec2 uPressure;
+        uniform float uVelocity;
+        uniform float uInteraction;
+
+        // Simplex 2D noise
+        vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
+        float snoise(vec2 v){
+            const vec4 C = vec4(0.211324865405187, 0.366025403784439,
+                     -0.577350269189626, 0.024390243902439);
+            vec2 i  = floor(v + dot(v, C.yy) );
+            vec2 x0 = v -   i + dot(i, C.xx);
+            vec2 i1;
+            i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+            vec4 x12 = x0.xyxy + C.xxzz;
+            x12.xy -= i1;
+            i = mod(i, 289.0);
+            vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 ))
+            + i.x + vec3(0.0, i1.x, 1.0 ));
+            vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
+            m = m*m ;
+            m = m*m ;
+            vec3 x = 2.0 * fract(p * C.www) - 1.0;
+            vec3 h = abs(x) - 0.5;
+            vec3 ox = floor(x + 0.5);
+            vec3 a0 = x - ox;
+            m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
+            vec3 g;
+            g.x  = a0.x  * x0.x  + h.x  * x0.y;
+            g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+            return 130.0 * dot(m, g);
+        }
+
+        void main() {
+            vec2 st = gl_FragCoord.xy / uResolution.xy;
+            float aspect = uResolution.x / uResolution.y;
+            st.x *= aspect;
+            vec2 pointer = uPressure;
+            pointer.x *= aspect;
+
+            float dist = distance(st, pointer);
+            float atmosphere = snoise(st * 2.5 + uTime * 0.1); // Slow ambient movement
+            
+            // Warp expands based on velocity
+            float warp = uVelocity * 0.05;
+            float radius = 0.05 + warp; 
+            
+            float shape = smoothstep(radius, radius - 0.02 - warp, dist + atmosphere * 0.08);
+            float glow = 0.015 / (dist - atmosphere * 0.02); // Tighter glow
+            glow = clamp(glow, 0.0, 1.0);
+            
+            vec3 colorBlue = vec3(0.05, 0.1, 0.2); // Deep void blue
+            vec3 colorHot = vec3(0.8, 0.3, 0.1);   // Friction energy
+            
+            vec3 finalColor = mix(colorBlue, colorHot, smoothstep(0.0, 5.0, uVelocity));
+            finalColor += vec3(0.1, 0.2, 0.3) * glow; // Ambient glow
+
+            // Opacity logic:
+            // Base visibility (0.1) + Interaction boost
+            float alpha = 0.05 + (shape + glow * 0.5) * uInteraction;
+
+            gl_FragColor = vec4(finalColor, alpha);
+        }
+    </script>
+
+    <!-- 2. GLYPH VERTEX SHADER (The Structure) -->
+    <script id="glyphVertexShader" type="x-shader/x-vertex">
+        precision highp float;
+        attribute vec2 positionFrom;
+        attribute vec2 positionTo;
+        uniform float uMorph;
+        uniform float uTime;
+        uniform float uAudio;     // Audio Level
+        uniform float uTension;   // From mouse velocity
+        
+        varying float vAlpha;
+
+        float easeInOut(float t) { return t * t * (3.0 - 2.0 * t); }
+
+        void main() {
+            float m = easeInOut(clamp(uMorph, 0.0, 1.0));
+            vec2 pos = mix(positionFrom, positionTo, m);
+
+            // Audio-Reactive Physics
+            // Sound expands the glyph
+            float breath = sin(uTime + pos.y * 4.0) * uAudio * 0.2;
+            
+            // Mouse Tension vibrates it
+            float jitter = sin(uTime * 20.0 + pos.x * 10.0) * uTension * 0.02;
+
+            pos *= 1.0 + breath;
+            pos += jitter;
+
+            // Pass visibility to fragment
+            // Glyphs are brighter when loud
+            vAlpha = 0.3 + uAudio * 1.5; 
+
+            gl_Position = vec4(pos, 0.0, 1.0);
+            gl_PointSize = 2.0 + uAudio * 10.0;
+        }
+    </script>
+
+    <!-- 3. GLYPH FRAGMENT SHADER (The Light) -->
+    <script id="glyphFragmentShader" type="x-shader/x-fragment">
+        precision highp float;
+        uniform vec3 uColor;
+        varying float vAlpha;
+
+        void main() {
+            vec2 coord = gl_PointCoord - vec2(0.5);
+            float dist = length(coord);
+            if (dist > 0.5) discard;
+            
+            float glow = 1.0 - (dist * 2.0);
+            glow = pow(glow, 2.0);
+
+            gl_FragColor = vec4(uColor, vAlpha * glow);
+        }
+    </script>
+
+    <!-- MAIN APP LOGIC -->
+    <script type="module">
+        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+        // --- CONFIG & STATE ---
+        const CONFIG = {
+            decay: 0.94,
+            morphSpeed: 0.003
+        };
+
+        const STATE = {
+            phase: 'VOID', // VOID -> ATTUNING -> MANIFESTING -> COMMUNING
+            energy: 0,     // Accumulates with interaction
+            isInteracting: false,
+            audioLevel: 0,
+            morphProgress: 0,
+            glyphIndex: 0,
+            nextGlyph: 1
+        };
+
+        // --- GLYPH DATA (The Language) ---
+        // Simple closed shapes for morphing
+        const RAW_GLYPHS = [
+            "M 0 -0.5 C 0.5 -0.5 0.5 0.5 0 0.5 C -0.5 0.5 -0.5 -0.5 0 -0.5", // Circle/Seed
+            "M -0.5 -0.5 L 0.5 0.5 M 0.5 -0.5 L -0.5 0.5",                   // Cross/Conflict
+            "M -0.6 0 C -0.3 0.8 0.3 -0.8 0.6 0",                             // Wave/Flow
+            "M 0 -0.6 L 0.5 0.3 L -0.5 0.3 Z"                                 // Delta/Change
+        ];
+
+        // Resample SVG to Points
+        function createGlyphBuffer(pathStr, count=256) {
+            const div = document.createElement('div');
+            div.innerHTML = `<svg><path d="${pathStr}"></path></svg>`;
+            const path = div.querySelector('path');
+            const len = path.getTotalLength();
+            const pts = [];
+            for(let i=0; i<count; i++) {
+                const p = path.getPointAtLength((i/(count-1))*len);
+                pts.push(p.x, p.y);
+            }
+            // Normalize
+            let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
+            for(let i=0; i<pts.length; i+=2) {
+                minX=Math.min(minX, pts[i]); maxX=Math.max(maxX, pts[i]);
+                minY=Math.min(minY, pts[i+1]); maxY=Math.max(maxY, pts[i+1]);
+            }
+            const range = Math.max(maxX-minX, maxY-minY) || 1;
+            const cx = (minX+maxX)/2, cy = (minY+maxY)/2;
+            const floatArr = new Float32Array(count*2);
+            for(let i=0; i<count; i++) {
+                floatArr[i*2] = ((pts[i*2]-cx)/range)*1.0;
+                floatArr[i*2+1] = -((pts[i*2+1]-cy)/range)*1.0;
+            }
+            return floatArr;
+        }
+
+        const GLYPHS = RAW_GLYPHS.map(p => createGlyphBuffer(p));
+
+        // --- SCENE SETUP ---
+        const scene = new THREE.Scene();
+        const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 10);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // 1. BACKGROUND PLANE (Fluid)
+        const bgUniforms = {
+            uTime: { value: 0 },
+            uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+            uPressure: { value: new THREE.Vector2(0.5, 0.5) },
+            uVelocity: { value: 0 },
+            uInteraction: { value: 0 }
+        };
+        const bgMesh = new THREE.Mesh(
+            new THREE.PlaneGeometry(2, 2),
+            new THREE.ShaderMaterial({
+                uniforms: bgUniforms,
+                vertexShader: `void main() { gl_Position = vec4(position, 1.0); }`,
+                fragmentShader: document.getElementById('fluidFragmentShader').textContent,
+                transparent: true
+            })
+        );
+        bgMesh.position.z = -1; // Behind
+        scene.add(bgMesh);
+
+        // 2. GLYPH PARTICLES (Language)
+        const glyphUniforms = {
+            uMorph: { value: 0 },
+            uTime: { value: 0 },
+            uAudio: { value: 0 },
+            uTension: { value: 0 },
+            uColor: { value: new THREE.Vector3(0.8, 0.9, 1.0) }
+        };
+        const glyphGeo = new THREE.BufferGeometry();
+        glyphGeo.setAttribute('positionFrom', new THREE.BufferAttribute(GLYPHS[0], 2));
+        glyphGeo.setAttribute('positionTo', new THREE.BufferAttribute(GLYPHS[1], 2));
+
+        const glyphMesh = new THREE.Points(
+            glyphGeo,
+            new THREE.ShaderMaterial({
+                uniforms: glyphUniforms,
+                vertexShader: document.getElementById('glyphVertexShader').textContent,
+                fragmentShader: document.getElementById('glyphFragmentShader').textContent,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthTest: false
+            })
+        );
+        glyphMesh.visible = false; // Hidden until Manifestation
+        scene.add(glyphMesh);
+
+        // --- AUDIO SYSTEM (Input & Output) ---
+        let audioCtx, analyser, dataArray;
+        
+        // Generative Sound Engine State
+        const SYNTH = {
+            osc: null,
+            gain: null,
+            filter: null
+        };
+        
+        async function enableAudio() {
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // 1. INPUT (Mic)
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const source = audioCtx.createMediaStreamSource(stream);
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 64;
+                analyser.smoothingTimeConstant = 0.8;
+                source.connect(analyser);
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                
+                // 2. OUTPUT (Generative Drone)
+                // Oscillator -> Filter -> Gain -> Destination
+                SYNTH.osc = audioCtx.createOscillator();
+                SYNTH.filter = audioCtx.createBiquadFilter();
+                SYNTH.gain = audioCtx.createGain();
+
+                // Setup Drone
+                SYNTH.osc.type = 'triangle'; // Richer sound than sine
+                SYNTH.osc.frequency.value = 110; // A2 (Deep base)
+                
+                SYNTH.filter.type = 'lowpass';
+                SYNTH.filter.frequency.value = 200; // Start muffled
+                SYNTH.filter.Q.value = 1;
+
+                SYNTH.gain.gain.value = 0; // Start silent
+
+                // Connect graph
+                SYNTH.osc.connect(SYNTH.filter);
+                SYNTH.filter.connect(SYNTH.gain);
+                SYNTH.gain.connect(audioCtx.destination);
+                
+                SYNTH.osc.start();
+
+                // Transition Phase
+                STATE.phase = 'COMMUNING';
+                document.getElementById('mic-permission').style.display = 'none';
+                document.getElementById('msg-listen').classList.remove('visible');
+                glyphMesh.visible = true; // Show glyphs
+                
+            } catch(e) {
+                console.warn("Audio denied", e);
+            }
+        }
+
+        // --- INPUT HANDLING ---
+        const lastPos = new THREE.Vector2(0.5, 0.5);
+        
+        function handleMove(x, y) {
+            STATE.isInteracting = true;
+            const current = new THREE.Vector2(x, y);
+            
+            // Physics
+            bgUniforms.uPressure.value.lerp(current, 0.1);
+            const dist = current.distanceTo(lastPos);
+            const velocity = Math.min(dist * 40, 5.0);
+            bgUniforms.uVelocity.value += (velocity - bgUniforms.uVelocity.value) * 0.1;
+            
+            // Pass tension to glyphs
+            glyphUniforms.uTension.value = bgUniforms.uVelocity.value;
+
+            // State Evolution
+            if(STATE.phase === 'VOID') {
+                STATE.energy += velocity * 0.1;
+                if(STATE.energy > 50) {
+                    STATE.phase = 'MANIFESTING';
+                    document.getElementById('msg-attune').classList.remove('visible');
+                    document.getElementById('msg-listen').classList.add('visible');
+                    
+                    // Show Mic Button
+                    const btn = document.getElementById('mic-permission');
+                    btn.style.display = 'block';
+                    btn.onclick = enableAudio;
+                }
+            }
+
+            lastPos.copy(current);
+        }
+
+        window.addEventListener('mousemove', e => handleMove(e.clientX/innerWidth, 1.0 - e.clientY/innerHeight));
+        window.addEventListener('touchmove', e => {
+            e.preventDefault();
+            handleMove(e.touches[0].clientX/innerWidth, 1.0 - e.touches[0].clientY/innerHeight);
+        });
+        window.addEventListener('mouseup', () => STATE.isInteracting = false);
+        window.addEventListener('touchend', () => STATE.isInteracting = false);
+
+        // --- RENDER LOOP ---
+        function animate(time) {
+            requestAnimationFrame(animate);
+            const t = time * 0.001;
+            
+            // Update Uniforms
+            bgUniforms.uTime.value = t;
+            bgUniforms.uInteraction.value += (STATE.isInteracting ? 1.0 : 0.0 - bgUniforms.uInteraction.value) * 0.05;
+            
+            if(!STATE.isInteracting) {
+                bgUniforms.uVelocity.value *= CONFIG.decay;
+            }
+
+            // Audio Logic (Input & Output)
+            if(STATE.phase === 'COMMUNING' && analyser) {
+                // 1. INPUT ANALYSIS
+                analyser.getByteFrequencyData(dataArray);
+                const avg = dataArray.reduce((a,b)=>a+b) / dataArray.length;
+                STATE.audioLevel = avg / 255.0; // 0.0 to 1.0
+                
+                glyphUniforms.uAudio.value = STATE.audioLevel;
+                
+                // Morph logic driven by Audio
+                if(STATE.audioLevel > 0.1) {
+                    STATE.morphProgress += CONFIG.morphSpeed + (STATE.audioLevel * 0.02);
+                }
+                
+                // 2. OUTPUT SYNTHESIS (Symbol -> Sound)
+                if(SYNTH.osc) {
+                    const currentTime = audioCtx.currentTime;
+                    
+                    // Volume is driven by Hand Velocity (Energy)
+                    // You must move to be heard
+                    const vel = bgUniforms.uVelocity.value;
+                    const targetGain = Math.min(vel * 0.05 + 0.02, 0.2); // Base hum + interaction
+                    SYNTH.gain.gain.setTargetAtTime(targetGain, currentTime, 0.1);
+                    
+                    // Filter is driven by Morph Progress + Audio Level
+                    // As the symbol changes, the sound "opens up"
+                    const morph = STATE.morphProgress;
+                    const brightness = STATE.audioLevel * 1000;
+                    const targetFreq = 150 + (morph * 300) + brightness;
+                    SYNTH.filter.frequency.setTargetAtTime(targetFreq, currentTime, 0.1);
+                    
+                    // Pitch bending based on Tension
+                    const targetPitch = 110 + (vel * 10);
+                    SYNTH.osc.frequency.setTargetAtTime(targetPitch, currentTime, 0.2);
+                }
+                
+                if(STATE.morphProgress >= 1.0) {
+                    STATE.morphProgress = 0;
+                    STATE.glyphIndex = STATE.nextGlyph;
+                    STATE.nextGlyph = (STATE.nextGlyph + 1) % GLYPHS.length;
+                    
+                    // Swap Buffers
+                    glyphGeo.attributes.positionFrom.array.set(GLYPHS[STATE.glyphIndex]);
+                    glyphGeo.attributes.positionTo.array.set(GLYPHS[STATE.nextGlyph]);
+                    glyphGeo.attributes.positionFrom.needsUpdate = true;
+                    glyphGeo.attributes.positionTo.needsUpdate = true;
+                    
+                    // Color shift
+                    const r = 0.5 + Math.random()*0.5;
+                    const g = 0.5 + Math.random()*0.5;
+                    const b = 1.0;
+                    glyphUniforms.uColor.value.set(r, g, b);
+                }
+            }
+
+            glyphUniforms.uTime.value = t;
+            glyphUniforms.uMorph.value = STATE.morphProgress;
+
+            renderer.render(scene, camera);
+        }
+        animate(0);
+        
+        window.addEventListener('resize', () => {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            bgUniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
