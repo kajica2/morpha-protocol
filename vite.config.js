@@ -1,5 +1,10 @@
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  // config options
+  base: '/morpha-protocol/',
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    sourcemap: false,
+  }
 })
