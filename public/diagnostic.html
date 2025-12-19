@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MORPHA Diagnostic</title>
+  <style>
+    body {
+      background: #0e0e0e;
+      color: #e6e6e6;
+      font-family: monospace;
+      padding: 2rem;
+      line-height: 1.6;
+    }
+    h1 { color: #fff; }
+    .test { margin: 1rem 0; padding: 1rem; border: 1px solid #333; }
+    .pass { border-color: #0f0; }
+    .fail { border-color: #f00; }
+    .warn { border-color: #ff0; }
+    code { background: #222; padding: 0.2rem 0.5rem; }
+    pre { background: #111; padding: 1rem; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>MORPHA Diagnostic Tool</h1>
+  <p>Testing system components...</p>
+
+  <div id="results"></div>
+
+  <script type="module">
+    const results = document.getElementById('results');
+
+    function addTest(name, status, message) {
+      const div = document.createElement('div');
+      div.className = `test ${status}`;
+      div.innerHTML = `
+        <strong>${status.toUpperCase()}: ${name}</strong><br>
+        ${message}
+      `;
+      results.appendChild(div);
+    }
+
+    // Test 1: Check if module imports work
+    try {
+      const testImport = await import('/src/main.js');
+      addTest('Module Import', 'pass', 'Main module imported successfully');
+    } catch (error) {
+      addTest('Module Import', 'fail', `Error: ${error.message}<br><pre>${error.stack}</pre>`);
+    }
+
+    // Test 2: Check data files
+    const dataFiles = ['phonemes.json', 'emotions.json', 'processed-glyphs.json'];
+    for (const file of dataFiles) {
+      try {
+        const response = await fetch(`/data/${file}`);
+        const data = await response.json();
+        const keys = Object.keys(data);
+        if (keys.length > 0) {
+          addTest(`Data: ${file}`, 'pass', `Loaded ${keys.length} entries`);
+        } else {
+          addTest(`Data: ${file}`, 'warn', 'File exists but is empty');
+        }
+      } catch (error) {
+        addTest(`Data: ${file}`, 'fail', `Error: ${error.message}`);
+      }
+    }
+
+    // Test 3: Check Three.js
+    try {
+      const THREE = await import('three');
+      addTest('Three.js', 'pass', `Version: ${THREE.REVISION}`);
+    } catch (error) {
+      addTest('Three.js', 'fail', `Error: ${error.message}`);
+    }
+
+    // Test 4: Check WebGL support
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (gl) {
+      addTest('WebGL', 'pass', `Renderer: ${gl.getParameter(gl.RENDERER)}`);
+    } else {
+      addTest('WebGL', 'fail', 'WebGL not supported in this browser');
+    }
+
+    // Test 5: Check microphone API
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      addTest('Microphone API', 'pass', 'getUserMedia API available');
+    } else {
+      addTest('Microphone API', 'warn', 'getUserMedia API not available (may need HTTPS)');
+    }
+
+    // Test 6: Check environment variables
+    const envVars = {
+      'VITE_GOOGLE_CLIENT_ID': import.meta.env.VITE_GOOGLE_CLIENT_ID,
+      'VITE_GOOGLE_API_KEY': import.meta.env.VITE_GOOGLE_API_KEY,
+    };
+
+    for (const [key, value] of Object.entries(envVars)) {
+      if (value) {
+        addTest(`Env: ${key}`, 'pass', `Set (${value.substring(0, 20)}...)`);
+      } else {
+        addTest(`Env: ${key}`, 'warn', 'Not set (Google Drive features will not work)');
+      }
+    }
+
+    // Test 7: Check shader files
+    const shaders = ['glyph.vert.glsl', 'glyph.frag.glsl'];
+    for (const shader of shaders) {
+      try {
+        const response = await fetch(`/shaders/${shader}`);
+        const text = await response.text();
+        if (text.length > 0) {
+          addTest(`Shader: ${shader}`, 'pass', `${text.length} bytes`);
+        } else {
+          addTest(`Shader: ${shader}`, 'fail', 'Shader file is empty');
+        }
+      } catch (error) {
+        addTest(`Shader: ${shader}`, 'fail', `Error: ${error.message}`);
+      }
+    }
+
+    addTest('Diagnostic Complete', 'pass', 'All tests completed. Check results above.');
+  </script>
+</body>
+</html>
