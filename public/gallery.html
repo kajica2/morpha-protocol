@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MORPHA Gallery — Visual Experience</title>
+  <meta name="description" content="See MORPHA in action: screenshots and visuals of the non-verbal communication protocol.">
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0e0e0e;
+      color: #e6e6e6;
+      font-family: Georgia, 'Times New Roman', serif;
+      padding: 2rem 1rem;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 4rem;
+      padding-bottom: 2rem;
+      border-bottom: 1px solid rgba(230, 230, 230, 0.1);
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      font-weight: normal;
+      letter-spacing: 0.12em;
+      margin-bottom: 1rem;
+      opacity: 0.95;
+    }
+
+    .subtitle {
+      font-size: 1.1rem;
+      opacity: 0.6;
+      font-style: italic;
+    }
+
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+      gap: 3rem;
+      margin-bottom: 4rem;
+    }
+
+    .gallery-item {
+      border: 1px solid rgba(230, 230, 230, 0.1);
+      padding: 1.5rem;
+      transition: all 0.3s ease;
+    }
+
+    .gallery-item:hover {
+      border-color: rgba(230, 230, 230, 0.3);
+      transform: translateY(-5px);
+    }
+
+    .gallery-item img {
+      width: 100%;
+      height: auto;
+      display: block;
+      margin-bottom: 1rem;
+      border: 1px solid rgba(230, 230, 230, 0.05);
+    }
+
+    .gallery-item h3 {
+      font-size: 1.3rem;
+      font-weight: normal;
+      margin-bottom: 0.5rem;
+      letter-spacing: 0.05em;
+      opacity: 0.9;
+    }
+
+    .gallery-item p {
+      font-size: 1rem;
+      line-height: 1.6;
+      opacity: 0.6;
+    }
+
+    .note {
+      background: rgba(230, 230, 230, 0.05);
+      padding: 1.5rem;
+      border-left: 2px solid rgba(230, 230, 230, 0.2);
+      margin: 3rem 0;
+      font-size: 0.95rem;
+      opacity: 0.7;
+    }
+
+    .back-link {
+      display: inline-block;
+      margin-top: 3rem;
+      padding: 0.8rem 2rem;
+      border: 1px solid rgba(230, 230, 230, 0.3);
+      color: #e6e6e6;
+      text-decoration: none;
+      opacity: 0.7;
+      transition: all 0.3s;
+      letter-spacing: 0.05em;
+    }
+
+    .back-link:hover {
+      opacity: 1;
+      border-color: rgba(230, 230, 230, 0.6);
+    }
+
+    @media (max-width: 768px) {
+      .gallery {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+      }
+
+      h1 {
+        font-size: 1.8rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>MORPHA Gallery</h1>
+      <p class="subtitle">A visual journey through non-verbal communication</p>
+    </header>
+
+    <div class="note">
+      <strong>Note:</strong> These are placeholder screenshots. To see actual MORPHA visuals,
+      run the application locally (<code>npm run dev</code>) and capture screenshots following
+      <a href="https://github.com/kajica2/morpha-protocol/blob/main/docs/SCREENSHOTS.md"
+         style="color: #e6e6e6;">the screenshot guide</a>.
+    </div>
+
+    <div class="gallery">
+      <div class="gallery-item">
+        <img src="/screenshots/landing-page.svg" alt="MORPHA Landing Page" loading="lazy">
+        <h3>Landing Page</h3>
+        <p>
+          The ceremonial entry point. Dark, minimal, intentional. Users are greeted with
+          the core MORPHA philosophy and a quiet invitation to enter.
+        </p>
+      </div>
+
+      <div class="gallery-item">
+        <img src="/screenshots/ritual-active.svg" alt="Active Ritual" loading="lazy">
+        <h3>Active Ritual</h3>
+        <p>
+          Glyphs morphing and breathing in response to sound. Each symbol belongs to a
+          family (Anchor, Flow, Fracture, Void, Echo) with distinct behaviors and meanings.
+        </p>
+      </div>
+
+      <div class="gallery-item">
+        <img src="/screenshots/ritual-active.svg" alt="Sound Response" loading="lazy">
+        <h3>Sound Response</h3>
+        <p>
+          Different frequencies create different symbol families. Low tones create grounding
+          anchors, high frequencies create fractured tension, balanced sounds create flowing motion.
+        </p>
+      </div>
+
+      <div class="gallery-item">
+        <img src="/screenshots/ritual-active.svg" alt="Silence State" loading="lazy">
+        <h3>Silence as Signal</h3>
+        <p>
+          During silence, time stretches. Glyphs persist longer, morphing slows, and the
+          system listens. Silence is not absence—it is presence.
+        </p>
+      </div>
+
+      <div class="gallery-item">
+        <img src="/screenshots/landing-page.svg" alt="Save Indicator" loading="lazy">
+        <h3>Saving Moments</h3>
+        <p>
+          Long press anywhere to save the current ritual moment. A subtle indicator (◦)
+          appears, and the moment is captured as a seamless looping video.
+        </p>
+      </div>
+
+      <div class="gallery-item">
+        <img src="/screenshots/landing-page.svg" alt="Mobile Experience" loading="lazy">
+        <h3>Mobile Responsive</h3>
+        <p>
+          MORPHA adapts to mobile devices with touch interactions. The full experience
+          translates to smaller screens without losing its contemplative nature.
+        </p>
+      </div>
+    </div>
+
+    <div class="note">
+      <strong>How to Experience MORPHA:</strong><br><br>
+      1. Visit the live demo or run locally<br>
+      2. Click "enter quietly"<br>
+      3. Allow microphone access<br>
+      4. Make sounds, stay silent, or both<br>
+      5. Long press to save special moments<br><br>
+      There is no wrong way—only your way.
+    </div>
+
+    <div style="text-align: center;">
+      <a href="/" class="back-link">← return to MORPHA</a>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<svg width="1920" height="1080" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1920" height="1080" fill="#0e0e0e"/>
+
+  <!-- Title -->
+  <text x="960" y="400" text-anchor="middle" fill="#e6e6e6"
+        font-family="Georgia" font-size="60" font-weight="normal"
+        letter-spacing="8" opacity="0.95">
+    MORPHA
+  </text>
+
+  <!-- Statements -->
+  <text x="960" y="500" text-anchor="middle" fill="#e6e6e6"
+        font-family="Georgia" font-size="22" opacity="0.8">
+    An open protocol for non-verbal symbolic communication
+  </text>
+
+  <text x="960" y="560" text-anchor="middle" fill="#e6e6e6"
+        font-family="Georgia" font-size="22" opacity="0.8">
+    MORPHA does not encode information.
+  </text>
+  <text x="960" y="590" text-anchor="middle" fill="#e6e6e6"
+        font-family="Georgia" font-size="22" opacity="0.8">
+    It encodes how something is held.
+  </text>
+
+  <text x="960" y="650" text-anchor="middle" fill="#e6e6e6"
+        font-family="Georgia" font-size="22" opacity="0.8">
+    Meaning emerges through transformation,
+  </text>
+  <text x="960" y="680" text-anchor="middle" fill="#e6e6e6"
+        font-family="Georgia" font-size="22" opacity="0.8">
+    influenced by sound and silence.
+  </text>
+
+  <!-- Button -->
+  <rect x="810" y="730" width="300" height="60" fill="none"
+        stroke="#e6e6e6" stroke-width="1" opacity="0.3"/>
+  <text x="960" y="770" text-anchor="middle" fill="#e6e6e6"
+        font-family="Georgia" font-size="20" letter-spacing="2" opacity="0.7">
+    enter quietly
+  </text>
+
+  <!-- Footer -->
+  <text x="960" y="1000" text-anchor="middle" fill="#e6e6e6"
+        font-family="Georgia" font-size="16" letter-spacing="1" opacity="0.3">
+    if it feels unclear, it is working
+  </text>
+
+  <!-- Placeholder note -->
+  <text x="1850" y="1060" text-anchor="end" fill="#e6e6e6"
+        font-family="monospace" font-size="12" opacity="0.2">
+    Screenshot placeholder
+  </text>
+</svg>

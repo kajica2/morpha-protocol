@@ -1,0 +1,56 @@
+<svg width="1920" height="1080" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Glyph gradients for ethereal feel -->
+    <radialGradient id="glyph1" cx="50%" cy="50%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0.1" />
+    </radialGradient>
+    <radialGradient id="glyph2" cx="50%" cy="50%">
+      <stop offset="0%" style="stop-color:#e6e6e6;stop-opacity:0.6" />
+      <stop offset="100%" style="stop-color:#e6e6e6;stop-opacity:0.05" />
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1920" height="1080" fill="#0e0e0e"/>
+
+  <!-- Glyph 1 - Anchor family -->
+  <path d="M 600 540
+           Q 650 480, 700 540
+           Q 650 600, 600 540 Z"
+        fill="none" stroke="url(#glyph1)" stroke-width="3" opacity="0.7">
+    <animateTransform attributeName="transform" type="rotate"
+                      from="0 650 540" to="360 650 540"
+                      dur="20s" repeatCount="indefinite"/>
+  </path>
+
+  <!-- Glyph 2 - Flow family -->
+  <ellipse cx="1000" cy="400" rx="120" ry="80"
+           fill="none" stroke="url(#glyph2)" stroke-width="2" opacity="0.6">
+    <animate attributeName="rx" values="120;140;120" dur="4s" repeatCount="indefinite"/>
+    <animate attributeName="ry" values="80;60;80" dur="4s" repeatCount="indefinite"/>
+  </ellipse>
+
+  <!-- Glyph 3 - Echo family -->
+  <circle cx="1300" cy="700" r="80"
+          fill="none" stroke="#ffffff" stroke-width="2" opacity="0.4">
+    <animate attributeName="r" values="80;100;80" dur="6s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.4;0.2;0.4" dur="6s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="1300" cy="700" r="100"
+          fill="none" stroke="#ffffff" stroke-width="1" opacity="0.2">
+    <animate attributeName="r" values="100;120;100" dur="6s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Instructions (fading) -->
+  <text x="960" y="950" text-anchor="middle" fill="#e6e6e6"
+        font-family="Georgia" font-size="18" letter-spacing="1" opacity="0.3">
+    make a sound or stay silent
+  </text>
+
+  <!-- Placeholder note -->
+  <text x="1850" y="1060" text-anchor="end" fill="#e6e6e6"
+        font-family="monospace" font-size="12" opacity="0.2">
+    Placeholder - capture actual ritual
+  </text>
+</svg>

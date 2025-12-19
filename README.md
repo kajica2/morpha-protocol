@@ -89,3 +89,32 @@ This implementation adheres to the core principles of the MORPHA protocol:
 -   **Silence is input:** Absence of sound is a meaningful signal that influences the system.
 -   **Influence, not command:** User interactions are treated as environmental pressures, not direct controls.
 -   **Save moments, not sessions:** The goal is to create durable, personal artifacts from ephemeral interactions.
+
+## Visual Experience
+
+### Landing Page
+
+<img src="./public/screenshots/landing-page.svg" alt="MORPHA Landing Page" width="100%">
+
+*The MORPHA experience begins with a minimal, ceremonial landing page. Dark aesthetic, philosophical statements, and a quiet invitation to "enter quietly."*
+
+### The Ritual
+
+<img src="./public/screenshots/ritual-active.svg" alt="Active MORPHA Ritual" width="100%">
+
+*Glyphs morph and breathe in response to sound and silence. Each belongs to a symbol family with distinct semantic meaning.*
+
+**[→ View Full Gallery](./public/gallery.html)** | **[→ Screenshot Guide](./docs/SCREENSHOTS.md)**
+
+### Key Visual Features
+
+| Aspect | Description |
+|--------|-------------|
+| **Sound Response** | Glyphs morph based on audio frequency and amplitude |
+| **Silence Behavior** | Time stretches, persistence increases during quiet |
+| **Symbol Families** | Anchor (grounding), Flow (movement), Fracture (tension), Void (absence), Echo (memory) |
+| **Continuous Motion** | Never cuts or snaps—only smooth transformations |
+| **Overlapping Glyphs** | Multiple symbols create meaning through layering |
+| **Save Moments** | Long press captures seamless video loops |
+
+> **Note:** The images above are SVG placeholders. To capture actual screenshots, run MORPHA locally and follow the [Screenshot Guide](./docs/SCREENSHOTS.md).
