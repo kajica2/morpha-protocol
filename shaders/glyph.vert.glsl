@@ -33,4 +33,5 @@ void main() {
   vEnergy = abs(wave) + uAudio * 0.4;
 
   gl_Position = vec4(pos, 0.0, 1.0);
+  gl_PointSize = 2.5;
 }
