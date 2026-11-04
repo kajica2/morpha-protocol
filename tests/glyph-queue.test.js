@@ -36,7 +36,14 @@ test('expired glyphs release meshes', () => {
   const glyph = queue.addGlyph(new Float32Array([0, 0, 1, 1]), 'echo', 0, { fadeTime: 2 });
   queue.update(0.5, 0.5, { amp: 0 }, 1, { emotionBias: 0.25 });
   assert.equal(glyph.mesh.material.uniforms.uEmotion.value, 0.25);
-  queue.update(0.5, 3, { amp: 0 }, 1, {});
+
+  // A glyph holds full opacity while it morphs, then decays over fadeTime.
+  // Step the clock in consistent frames until the decay has run its course.
+  let time = 0.5;
+  for (let i = 0; i < 40; i++) {
+    time += 0.25;
+    queue.update(0.25, time, { amp: 0 }, 1, {});
+  }
   assert.equal(queue.queue.length, 0);
   assert.equal(renderer.removed.length, 1);
 });

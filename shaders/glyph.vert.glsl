@@ -9,6 +9,7 @@ uniform float uAudio;
 
 uniform float uBreath;
 uniform float uWarp;
+uniform float uAspect;
 
 varying float vEnergy;
 
@@ -32,6 +33,11 @@ void main() {
 
   vEnergy = abs(wave) + uAudio * 0.4;
 
-  gl_Position = vec4(pos, 0.0, 1.0);
-  gl_PointSize = 2.5;
+  // NDC x spans more pixels than NDC y, so y is stretched to match.
+  // Without this a circle reads as a wide ellipse on a non-square window.
+  gl_Position = vec4(pos.x, pos.y * uAspect, 0.0, 1.0);
+
+  // Point sprites carry the glyph. The base size keeps the sampled path
+  // legible as a continuous line rather than a dotted trace.
+  gl_PointSize = 9.0 + uAudio * 16.0;
 }

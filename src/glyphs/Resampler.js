@@ -43,9 +43,12 @@ export function normalizePoints(points) {
 
   const out = new Float32Array(points.length * 2);
 
+  // Scale to the -0.5..0.5 range, matching the shipped First Ritual demo.
+  // Scaling to the full -1..1 range makes glyphs sit flush against the
+  // viewport edge with no breathing room.
   points.forEach((p, i) => {
-    out[i * 2]     = ((p.x - cx) / safeScale) * 2; // Scale to -1 to 1 range
-    out[i * 2 + 1] = ((p.y - cy) / safeScale) * 2; // Scale to -1 to 1 range
+    out[i * 2]     = ((p.x - cx) / safeScale); // Scale to -0.5 to 0.5 range
+    out[i * 2 + 1] = -((p.y - cy) / safeScale); // Flip y: SVG y grows downward
   });
 
   return out;
