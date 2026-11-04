@@ -24,7 +24,7 @@ runtime blockers. Deployment is reproducible.
 | 0.7 | Base-path correctness | `[x]` | `import.meta.env.BASE_URL`; Pages sub-path verified. |
 | 0.8 | Exposed API credential remediated | `[x]` | Key removed from tree, moved to `.env`. |
 | 0.9 | Critical startup blockers | `[x]` | Render draw-call, auth gate, data fetch. |
-| 0.10 | Draft PR for human review | `[x]` | See repository PR list. |
+| 0.10 | Draft PR for human review | `[x]` | Draft PR #2 (open, not merged). |
 
 **Exit criteria:** all of the above are `[x]`, the test suite is green, and
 the production build output is verified by CI (`dist/index.html` and
@@ -175,6 +175,35 @@ budgets, release and rollback procedures are not started.
 | `demo/` contains an unrelated AI gateway experiment | Low | Out of scope for the protocol implementation. |
 
 ---
+
+## Verification Evidence
+
+Recorded from the working branch at commit `7840519`.
+
+| Gate | Command | Result |
+|------|---------|--------|
+| Syntax | `npm run lint` | 52 files checked, 0 failures |
+| Unit suite | `npm test` | 157 tests, 157 pass, 0 fail |
+| Production build | `npm run build` | exit 0; `dist/data/` emitted |
+| Browser smoke (dev) | `npm run smoke -- --url http://127.0.0.1:5174` | 9/9 checks pass |
+| Browser smoke (production build) | `npm run smoke -- --url http://127.0.0.1:5177` | 9/9 checks pass |
+| Browser smoke (Pages sub-path) | `npm run smoke -- --url http://127.0.0.1:5178/morpha-protocol/` | 9/9 checks pass |
+| Negative control | smoke vs. deliberately broken build | **fails, exit 1** - the gate is real |
+| Dependency audit | `npm audit` | 2 advisories remain (vite/esbuild); a fix needs a Vite major upgrade |
+| CI | GitHub Actions on PR #2 | queued at time of writing - **not verified** |
+| Deployment | Vercel / GitHub Pages | **not deployed** - configs only, locally validated |
+
+### What the smoke test asserts
+
+`scripts/browser-smoke.js` drives the real application in headless Chrome
+over the DevTools Protocol, with no new dependencies:
+
+1. the page loads,
+2. the entry ritual can be entered,
+3. a WebGL context is created,
+4. the rendered output **changes over time** (the morph is alive, not frozen),
+5. glyph pixels are present and reach visible luminance,
+6. no uncaught exceptions, unhandled rejections or console errors.
 
 ## Verification Commands
 
