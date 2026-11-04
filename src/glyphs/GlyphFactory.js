@@ -1,5 +1,9 @@
-import { resampleSVGPath } from './Resampler';
-import { Glyph } from './Glyph';
+import { resampleSVGPath } from './Resampler.js';
+import { Glyph } from './Glyph.js';
+
+// Resolved against Vite's base path so the data resolves when the app is
+// deployed under a sub-path (e.g. GitHub Pages at /morpha-protocol/).
+const DATA_BASE = `${import.meta.env.BASE_URL || '/'}data`;
 
 let phonemeData = {};
 let rawGlyphSVGPaths = {}; // Will store raw SVG path strings
@@ -7,16 +11,23 @@ let rawGlyphSVGPaths = {}; // Will store raw SVG path strings
 export async function loadGlyphData() {
   try {
     // Load phoneme data
-    const phonemesResponse = await fetch('/data/phonemes.json');
+    const phonemesResponse = await fetch(`${DATA_BASE}/phonemes.json`);
+    if (!phonemesResponse.ok) {
+      throw new Error(`phonemes.json responded ${phonemesResponse.status}`);
+    }
     phonemeData = await phonemesResponse.json();
 
     // Load raw SVG path data
-    const rawGlyphPathsResponse = await fetch('/data/processed-glyphs.json');
+    const rawGlyphPathsResponse = await fetch(`${DATA_BASE}/processed-glyphs.json`);
+    if (!rawGlyphPathsResponse.ok) {
+      throw new Error(`processed-glyphs.json responded ${rawGlyphPathsResponse.status}`);
+    }
     rawGlyphSVGPaths = await rawGlyphPathsResponse.json();
 
     console.log("Glyph data loaded successfully.");
   } catch (error) {
     console.error("Error loading glyph data:", error);
+    throw error;
   }
 }
 

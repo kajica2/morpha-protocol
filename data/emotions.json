@@ -1,0 +1,44 @@
+{
+  "calm": {
+    "colorDrift": -0.2,
+    "morphSpeed": 0.8,
+    "warpIntensity": 0.3,
+    "breathDepth": 0.6
+  },
+  "energetic": {
+    "colorDrift": 0.3,
+    "morphSpeed": 1.2,
+    "warpIntensity": 0.8,
+    "breathDepth": 0.4
+  },
+  "contemplative": {
+    "colorDrift": -0.4,
+    "morphSpeed": 0.6,
+    "warpIntensity": 0.2,
+    "breathDepth": 0.9
+  },
+  "chaotic": {
+    "colorDrift": 0.5,
+    "morphSpeed": 1.5,
+    "warpIntensity": 1.0,
+    "breathDepth": 0.2
+  },
+  "neutral": {
+    "colorDrift": 0.0,
+    "morphSpeed": 1.0,
+    "warpIntensity": 0.5,
+    "breathDepth": 0.5
+  },
+  "melancholic": {
+    "colorDrift": -0.3,
+    "morphSpeed": 0.7,
+    "warpIntensity": 0.4,
+    "breathDepth": 0.8
+  },
+  "ecstatic": {
+    "colorDrift": 0.6,
+    "morphSpeed": 1.4,
+    "warpIntensity": 0.9,
+    "breathDepth": 0.3
+  }
+}

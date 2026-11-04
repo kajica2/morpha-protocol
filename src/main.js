@@ -7,19 +7,24 @@ import { getAudioEnergy } from './audio/Analyzer';
 import { updateSilence, getSilenceWeight } from './audio/Silence';
 import { loadUserFingerprint, saveUserFingerprint, updateUserFingerprint } from './storage/SessionStore';
 import { CanvasCapture } from './export/Capture';
-import { initGoogleAuth, handleAuthClick, isAuthorized } from './storage/DriveAuth';
+import { initGoogleAuth, handleAuthClick, isAuthorized, isAuthAvailable } from './storage/DriveAuth';
 import { uploadFileToDrive } from './storage/DriveUpload';
+import { Engine } from './core/Engine.js';
+import { mapAudioToInfluence } from './audio/AudioMap.js';
 
 console.log("MORPHA Implementation Initialized");
 
 let renderer;
 let glyphQueue;
 let animationFrameId;
-let lastTime = 0;
-let globalTime = 0;
 let nextGlyphTime = 0; // Timer for adding new glyphs
 let userFingerprint = {}; // Loaded from session store
 let canvasCapture;
+
+// The engine owns the clock, the state and the morph. It is deterministic,
+// clamped against tab-suspend gaps, and independently unit tested.
+let engine;
+let previousInfluence = null;
 
 let longPressTimer = null;
 const LONG_PRESS_DURATION = 1000; // 1 second for long press
@@ -47,19 +52,30 @@ entryRitual.addEventListener('click', async () => {
   entryRitual.style.display = 'none';
   userFingerprint = loadUserFingerprint(); // Load fingerprint at start
 
-  // Initialize Google Auth and show button if not authorized
-  await initGoogleAuth();
-  if (!isAuthorized()) {
-    authButton.style.display = 'block';
+  // The ritual starts on its own terms: microphone + glyph data.
+  const audioReady = await initAudioInput();
+  if (!audioReady) {
+    alert("Microphone access denied. Cannot start MORPHA ritual.");
+    return;
   }
 
-  const audioReady = await initAudioInput();
-  if (audioReady) {
-    await loadGlyphData(); // Load glyph data before starting ritual
-    startRitual();
-  } else {
-    alert("Microphone access denied. Cannot start MORPHA ritual.");
-  }
+  await loadGlyphData(); // Load glyph data before starting ritual
+  startRitual();
+
+  // Google Drive linking is optional and runs in the background. A missing or
+  // expired API key must never delay or block the ritual.
+  initGoogleAuth()
+    .then(() => {
+      // Only offer the button when Drive is actually usable. With a missing
+      // or expired key the link cannot succeed, so do not present a dead
+      // control.
+      if (isAuthAvailable() && !isAuthorized()) {
+        authButton.style.display = 'block';
+      }
+    })
+    .catch((error) => {
+      console.warn('MORPHA: Google Drive linking unavailable.', error?.message || error);
+    });
 }, { once: true });
 
 function startRitual() {
@@ -68,7 +84,14 @@ function startRitual() {
   glyphQueue = new GlyphQueue(renderer); // Initialize GlyphQueue with the renderer
   canvasCapture = new CanvasCapture(renderer.renderer.domElement); // Initialize capture
 
-  // Add an initial glyph to start the ritual
+  // The engine drives time, silence and the global morph.
+  engine = new Engine();
+  engine.start();
+  engine.setMorphTarget(1);
+
+  // Protocol grammar: "At least two symbol instances MUST overlap at all
+  // times." An utterance opens with overlapping symbols, not a lone glyph.
+  addRandomGlyph();
   addRandomGlyph();
 
   setupInteractionListeners();
@@ -138,6 +161,10 @@ async function saveCurrentRitual() {
 }
 
 function addRandomGlyph() {
+  // The engine owns the clock, so the current simulation time comes from it
+  // rather than from a variable local to the render loop. The engine's clock
+  // carries the elapsed time.
+  const globalTime = engine ? engine.clock.elapsed : 0;
   const phoneme = getRandomPhoneme();
   const newGlyph = createGlyphFromPhoneme(phoneme, globalTime, userFingerprint);
   if (newGlyph) {
@@ -148,27 +175,42 @@ function addRandomGlyph() {
 
 function animate(time = 0) {
   animationFrameId = requestAnimationFrame(animate);
-  const deltaTime = (time - lastTime) * 0.001; // Convert to seconds
-  lastTime = time;
-  globalTime += deltaTime;
+
+  // The engine owns the clock: it clamps the delta so a backgrounded tab
+  // cannot teleport the simulation, and it advances the global morph.
+  const frame = engine.tick(time);
+  if (!frame) return;
+  const deltaTime = frame.delta;
+  const globalTime = frame.elapsed;
 
   const audioData = getAudioEnergy();
   const silenceDuration = updateSilence(deltaTime);
   const silenceWeight = getSilenceWeight();
 
+  // Silence is input, not an absence. It enters the engine as a signal and
+  // biases the morph rather than halting it.
+  engine.updateSilence(deltaTime, silenceDuration > 0.5);
+
+  // Structural influence: sound biases morph velocity, resistance,
+  // persistence and phase rather than mapping volume straight to brightness.
+  const influence = mapAudioToInfluence(audioData, {
+    previous: previousInfluence,
+    elapsed: globalTime,
+  });
+  previousInfluence = influence;
+
   // Update user fingerprint dynamically
   userFingerprint = updateUserFingerprint(userFingerprint, audioData, silenceWeight, glyphQueue.queue.length > 0 ? glyphQueue.queue[glyphQueue.queue.length - 1].morphProgress : 0);
 
-  // Morph progress influenced by silence
-  let morphProgress = (Math.sin(globalTime * 0.0005) + 1) / 2; // Base morph
-  if (silenceDuration > 0.5) { // If silence is detected for a significant duration
-    morphProgress = glyphQueue.queue.length > 0 ? glyphQueue.queue[glyphQueue.queue.length - 1].morphProgress : 0; // Keep current morph value
-    renderer.uniforms.uWarp.value = 0.1; // Reduce warp during silence
-    renderer.uniforms.uOpacity.value = 0.7; // Slightly reduce opacity
+  // Silence slows the warp and dims the field rather than halting it.
+  if (silenceDuration > 0.5) {
+    renderer.sharedUniforms.uWarp.value = 0.1; // Reduce warp during silence
   } else {
-    renderer.uniforms.uWarp.value = audioData.mid * 0.8; // Resume audio-driven warp
-    renderer.uniforms.uOpacity.value = 1.0; // Full opacity
+    renderer.sharedUniforms.uWarp.value = audioData.mid * 0.8; // Resume audio-driven warp
   }
+
+  // Sound biases how fast the glyphs morph and how strongly they resist.
+  renderer.sharedUniforms.uBreath.value = (userFingerprint.breath || 0.4) * (0.6 + influence.persistence * 0.8);
 
   // Update glyph queue and individual glyphs
   glyphQueue.update(deltaTime, globalTime, audioData, silenceWeight, userFingerprint);
@@ -177,22 +219,14 @@ function animate(time = 0) {
   if (renderer) {
     renderer.update(deltaTime, audioData, globalTime, userFingerprint);
 
-    // Update individual glyph mesh uniforms based on their state in the queue
+    // Per-glyph uniforms only. The global ones (uTime, uAudio, uWarp,
+    // uBreath, uColorA, uColorB) are shared by reference across every glyph
+    // material, so renderer.update() already reaches them.
     glyphQueue.queue.forEach(glyph => {
       if (glyph.mesh) {
-        // Calculate morph progress for this specific glyph based on its position in the queue
-        // This is a simplified approach for now, a more complex system would manage morphs between specific glyph pairs
-        const glyphMorphProgress = (globalTime - glyph.birthTime) / (glyph.semanticWeight.fadeTime || 5.0); // Simplified
-        glyph.mesh.material.uniforms.uMorph.value = Math.min(1.0, glyphMorphProgress);
+        glyph.mesh.material.uniforms.uMorph.value = glyph.morphProgress;
         glyph.mesh.material.uniforms.uOpacity.value = glyph.currentOpacity;
-        // Pass global audio/time/emotion to each glyph's material
-        glyph.mesh.material.uniforms.uTime.value = globalTime;
-        glyph.mesh.material.uniforms.uAudio.value = audioData.amp;
-        glyph.mesh.material.uniforms.uWarp.value = audioData.mid * 0.8;
-        glyph.mesh.material.uniforms.uEmotion.value = userFingerprint.emotionBias;
-        glyph.mesh.material.uniforms.uBreath.value = userFingerprint.breath;
-        glyph.mesh.material.uniforms.uColorA.value.set(userFingerprint.colorA);
-        glyph.mesh.material.uniforms.uColorB.value.set(userFingerprint.colorB);
+        glyph.mesh.material.uniforms.uEmotion.value = userFingerprint.emotionBias || 0;
       }
     });
 
@@ -215,9 +249,16 @@ function animate(time = 0) {
 export function stopRitual() {
   cancelAnimationFrame(animationFrameId);
   stopAudioInput();
+  if (engine) {
+    engine.dispose();
+    engine = null;
+  }
+  if (glyphQueue) {
+    glyphQueue.dispose();
+    glyphQueue = null;
+  }
   if (renderer) {
-    renderer.renderer.dispose();
-    renderer.scene.clear();
+    renderer.dispose();
     renderer = null;
   }
 }
