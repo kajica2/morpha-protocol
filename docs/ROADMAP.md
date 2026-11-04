@@ -171,7 +171,7 @@ budgets, release and rollback procedures are not started.
 |------|----------|--------|
 | Google API key was committed in git history | High | Key removed from the working tree and expired upstream. **History rewrite or explicit revocation is still recommended.** |
 | `node --test <dir>` behaves inconsistently across Node builds | Low | The test script pins an explicit glob. |
-| `vite` depends on an `esbuild` version with a moderate advisory | Moderate | Requires a Vite major upgrade; deferred deliberately to avoid a breaking change in the same cycle. |
+| Vite 5 depended on an `esbuild` version with a moderate advisory and a Vite path-traversal advisory | High | **Resolved** - upgraded to Vite 8. `npm audit` reports 0 vulnerabilities. Node floor raised to `^20.19.0 || >=22.12.0`. |
 | App runtime does not yet use `src/core/Engine.js` | Moderate | Phase 1.10. |
 | `src/main.ts`, `src/counter.ts`, `src/style.css`, `src/typescript.svg` are unused Vite starter leftovers | Low | Left in place for now; not referenced by any entry point. |
 | `demo/` contains an unrelated AI gateway experiment | Low | Out of scope for the protocol implementation. |
@@ -191,7 +191,7 @@ Recorded from the working branch at commit `7840519`.
 | Browser smoke (production build) | `npm run smoke -- --url http://127.0.0.1:5177` | 9/9 checks pass |
 | Browser smoke (Pages sub-path) | `npm run smoke -- --url http://127.0.0.1:5178/morpha-protocol/` | 9/9 checks pass |
 | Negative control | smoke vs. deliberately broken build | **fails, exit 1** - the gate is real |
-| Dependency audit | `npm audit` | 2 advisories remain (vite/esbuild); a fix needs a Vite major upgrade |
+| Dependency audit | `npm audit` | **0 vulnerabilities** (after the Vite 8 upgrade) |
 | CI | GitHub Actions on PR #2 | queued at time of writing - **not verified** |
 | Deployment | Vercel / GitHub Pages | **not deployed** - configs only, locally validated |
 
