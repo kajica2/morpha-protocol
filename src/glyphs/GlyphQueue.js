@@ -1,4 +1,4 @@
-import { Glyph } from './Glyph';
+import { Glyph } from './Glyph.js';
 
 const MAX_GLYPHS = 4;
 
