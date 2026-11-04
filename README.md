@@ -29,8 +29,10 @@ rules. See the roadmap for what is verified and what is not.
 
 ### Prerequisites
 
-- Node.js 18 or higher (22 recommended)
+- Node.js `^20.19.0` or `>=22.12.0` (Node 22 recommended)
 - npm
+
+Vite 8 requires this floor. Older Node versions will not install or build.
 
 ### Installation
 
