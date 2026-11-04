@@ -1,0 +1,42 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { GlyphQueue } from '../src/glyphs/GlyphQueue.js';
+
+function mockRenderer() {
+  const removed = [];
+  return {
+    removed,
+    addGlyphMesh() {
+      return { material: { uniforms: { uMorph: { value: 0 }, uOpacity: { value: 0 }, uEmotion: { value: 0 } } } };
+    },
+    removeGlyphMesh(mesh) { removed.push(mesh); },
+  };
+}
+
+test('glyph queue creates meshes, bounds overlap and disposes evicted glyphs', () => {
+  const renderer = mockRenderer();
+  const queue = new GlyphQueue(renderer);
+  const geometry = new Float32Array([0, 0, 1, 1]);
+  for (let i = 0; i < 5; i++) queue.addGlyph(geometry, 'flow', i, { fadeTime: 5 });
+  assert.equal(queue.getActiveGlyphs().length, 4);
+  assert.equal(renderer.removed.length, 1);
+  queue.dispose();
+  assert.equal(renderer.removed.length, 5);
+  assert.equal(queue.queue.length, 0);
+});
+
+test('invalid coordinate buffers are rejected', () => {
+  const queue = new GlyphQueue(mockRenderer());
+  assert.throws(() => queue.addGlyph(new Float32Array([0, 1, 2]), 'flow', 0), TypeError);
+});
+
+test('expired glyphs release meshes', () => {
+  const renderer = mockRenderer();
+  const queue = new GlyphQueue(renderer);
+  const glyph = queue.addGlyph(new Float32Array([0, 0, 1, 1]), 'echo', 0, { fadeTime: 2 });
+  queue.update(0.5, 0.5, { amp: 0 }, 1, { emotionBias: 0.25 });
+  assert.equal(glyph.mesh.material.uniforms.uEmotion.value, 0.25);
+  queue.update(0.5, 3, { amp: 0 }, 1, {});
+  assert.equal(queue.queue.length, 0);
+  assert.equal(renderer.removed.length, 1);
+});
