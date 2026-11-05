@@ -222,6 +222,30 @@ export class Engine {
   }
 
   /**
+   * Feed silence into the engine from an external detector.
+   *
+   * Two values are supplied deliberately. `isSilent` is the detector's
+   * hysteresis-aware boolean, which drives the duration accumulator so a
+   * borderline input does not chatter it on and off. `weight` is the
+   * detector's continuous value, which overrides the engine's own coarse
+   * ramp so the resistance the morph feels is smooth.
+   *
+   * Passing only a boolean would discard the smoothing and make resistance
+   * step, which the protocol treats as silence halting the morph rather than
+   * biasing it.
+   *
+   * @param {number} dt Frame delta in seconds.
+   * @param {boolean} isSilent Whether the detector currently reads silence.
+   * @param {number} weight Continuous silence weight, 0..1.
+   * @returns {number} The applied silence weight, 0..1.
+   */
+  feedSilence(dt, isSilent, weight) {
+    this._assertUsable();
+    this.updateSilence(dt, isSilent === true);
+    return this.setSilenceWeight(weight);
+  }
+
+  /**
    * The current silence weight, 0..1.
    *
    * @returns {number} Silence weight.

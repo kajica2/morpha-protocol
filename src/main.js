@@ -4,7 +4,7 @@ import { GlyphQueue } from './glyphs/GlyphQueue';
 import { loadGlyphData, createGlyphFromPhoneme, getRandomPhoneme } from './glyphs/GlyphFactory';
 import { initAudioInput, stopAudioInput } from './audio/AudioInput';
 import { getAudioEnergy } from './audio/Analyzer';
-import { updateSilence, getSilenceWeight } from './audio/Silence';
+import { updateSilence, getSilenceWeight, isSilent } from './audio/Silence';
 import { loadUserFingerprint, saveUserFingerprint, updateUserFingerprint } from './storage/SessionStore';
 import { CanvasCapture } from './export/Capture';
 import { initGoogleAuth, handleAuthClick, isAuthorized, isAuthAvailable } from './storage/DriveAuth';
@@ -189,7 +189,14 @@ function animate(time = 0) {
 
   // Silence is input, not an absence. It enters the engine as a signal and
   // biases the morph rather than halting it.
-  engine.updateSilence(deltaTime, silenceDuration > 0.5);
+  //
+  // Two values are supplied deliberately. The hysteresis-aware boolean feeds
+  // the engine's duration accumulator, so a borderline mic does not chatter
+  // the duration on and off. The continuous weight then overrides the
+  // engine's coarse ramp, so the resistance the morph feels is the detector's
+  // smooth value rather than a step. Feeding a threshold instead would throw
+  // the smoothing away.
+  engine.feedSilence(deltaTime, isSilent(), silenceWeight);
 
   // Structural influence: sound biases morph velocity, resistance,
   // persistence and phase rather than mapping volume straight to brightness.
