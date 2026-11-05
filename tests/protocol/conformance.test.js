@@ -125,7 +125,7 @@ test('grammar: no symbol may be removed without decaying', () => {
   assert.equal(glyph.currentOpacity, 0);
 });
 
-test('grammar: the overlap ceiling is respected and eviction releases resources', () => {
+test('grammar: symbols over the ceiling retire by decaying, never by being cut', () => {
   const renderer = mockRenderer();
   const queue = new GlyphQueue(renderer);
 
@@ -133,9 +133,38 @@ test('grammar: the overlap ceiling is respected and eviction releases resources'
     queue.addGlyph(square, 'flow', i, { fadeTime: 10 });
   }
 
-  assert.equal(queue.getActiveGlyphs().length, 4);
-  assert.equal(renderer.removed.length, 2, 'evicted glyphs must release their meshes');
-  assert.ok(queue.satisfiesMinimumOverlap());
+  // protocol section 6: "No symbol MAY be removed without decay". The
+  // symbols above the ceiling are asked to retire, not cut away. Nothing is
+  // released while the symbols are still visible.
+  assert.equal(
+    renderer.removed.length,
+    0,
+    'no symbol may be removed without first decaying',
+  );
+  assert.ok(
+    queue.queue.some(glyph => glyph.isRetiring),
+    'the symbols above the ceiling must be retiring',
+  );
+
+  // They complete their morph and decay, and release their meshes then.
+  let time = 0;
+  for (let i = 0; i < 400; i++) {
+    time += 0.25;
+    queue.update(0.25, time, { amp: 0 }, 0, {});
+  }
+  assert.ok(
+    renderer.removed.length >= 2,
+    'decayed symbols must release their meshes',
+  );
+
+  // Every symbol that was removed must have decayed first. A symbol that
+  // was still visible when it was removed would be a cut.
+  for (const glyph of queue.queue) {
+    assert.ok(
+      glyph.currentOpacity <= 0.01,
+      'a symbol was removed while still visible',
+    );
+  }
 });
 
 test('grammar: transitions are continuous - no instantaneous state changes', () => {
@@ -200,4 +229,40 @@ test('grammar: repetition increases inertia, not magnitude', () => {
   assert.ok(max <= 0.5 + 1e-9, `magnitude grew to ${max} through repetition`);
   assert.ok(max - min < 0.2, 'repetition should not produce large swings');
   engine.dispose();
+});
+
+test('grammar: no symbol is ever removed while it is still visible', () => {
+  // The strongest form of "No symbol MAY be removed without decay": watch
+  // the whole lifecycle and assert every removal happened at zero opacity.
+  const renderer = mockRenderer();
+  const queue = new GlyphQueue(renderer);
+  const removedWhileVisible = [];
+
+  const originalRemove = queue.removeGlyph.bind(queue);
+  queue.removeGlyph = (glyph) => {
+    if (glyph.currentOpacity > 0.01) {
+      removedWhileVisible.push(glyph.currentOpacity);
+    }
+    originalRemove(glyph);
+  };
+
+  for (let i = 0; i < 12; i++) {
+    queue.addGlyph(square, ['anchor', 'flow', 'void', 'echo'][i % 4], i, { fadeTime: 4 });
+  }
+
+  let time = 0;
+  for (let i = 0; i < 600; i++) {
+    time += 0.1;
+    queue.update(0.1, time, { amp: 0 }, 0, {});
+    // Keep the field populated so the ceiling is exercised continuously.
+    if (i % 20 === 0) {
+      queue.addGlyph(square, 'flow', time, { fadeTime: 4 });
+    }
+  }
+
+  assert.deepEqual(
+    removedWhileVisible,
+    [],
+    'symbols were removed while still visible',
+  );
 });

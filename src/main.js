@@ -160,7 +160,7 @@ async function saveCurrentRitual() {
   });
 }
 
-function addRandomGlyph() {
+function addRandomGlyph({ scheduleNext = true } = {}) {
   // The engine owns the clock, so the current simulation time comes from it
   // rather than from a variable local to the render loop. The engine's clock
   // carries the elapsed time.
@@ -170,7 +170,11 @@ function addRandomGlyph() {
   if (newGlyph) {
     glyphQueue.addGlyph(newGlyph.geometry, newGlyph.family, globalTime, newGlyph.semanticWeight);
   }
-  nextGlyphTime = globalTime + (Math.random() * 3 + 2); // Next glyph in 2-5 seconds
+  // A demand-driven add must not postpone the next scheduled one, or the
+  // rhythm of the ritual would drift every time the field needed topping up.
+  if (scheduleNext) {
+    nextGlyphTime = globalTime + (Math.random() * 3 + 2); // Next glyph in 2-5 seconds
+  }
 }
 
 function animate(time = 0) {
@@ -219,8 +223,20 @@ function animate(time = 0) {
   // Sound biases how fast the glyphs morph and how strongly they resist.
   renderer.sharedUniforms.uBreath.value = (userFingerprint.breath || 0.4) * (0.6 + influence.persistence * 0.8);
 
-  // Update glyph queue and individual glyphs
-  glyphQueue.update(deltaTime, globalTime, audioData, silenceWeight, userFingerprint);
+  // Replenish BEFORE the queue update, so a replacement symbol is already in
+  // place before a decaying one is removed. Checking afterwards would let the
+  // field dip below the protocol minimum for a frame.
+  //
+  // The cadence timer stays authoritative for rhythm: a demand-driven add
+  // must not push the next scheduled add further away.
+  if (glyphQueue.needsReplenishment()) {
+    addRandomGlyph({ scheduleNext: false });
+  }
+
+  // Update glyph queue and individual glyphs. The influence is passed down so
+  // each glyph's MOTION is biased by sound, weighted by that glyph's family
+  // and its own semantic weight - not just the field as a whole.
+  glyphQueue.update(deltaTime, globalTime, audioData, silenceWeight, userFingerprint, influence);
 
   // Update renderer global uniforms (e.g., uTime, uAudio, uWarp, uBreath, uColorA, uColorB)
   if (renderer) {
@@ -246,7 +262,8 @@ function animate(time = 0) {
     });
   }
 
-  // Add new glyphs based on time
+  // Add new glyphs based on time. The cadence sets the rhythm of the ritual;
+  // the demand-driven check above guarantees the overlap minimum.
   if (globalTime >= nextGlyphTime) {
     addRandomGlyph();
   }
