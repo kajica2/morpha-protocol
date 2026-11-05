@@ -32,13 +32,15 @@ test('ritual entry points to the advantages overview', () => {
   assert.match(html, /href="\.\/advantages\/index\.html"/);
 });
 
-test('interactive gallery uses real published glyph paths and accessible controls', () => {
+test('interactive gallery uses published glyph paths and accessible controls', () => {
   const html = readFileSync(join(root, 'public/advantages/gallery.html'), 'utf8');
   const code = readFileSync(join(root, 'public/advantages/assets/gallery.js'), 'utf8');
-  assert.match(html, /id="glyph-field"/);
-  for (const id of ['family', 'energy', 'silence', 'pause-motion', 'reset-motion', 'gallery-status']) assert.match(html, new RegExp('id="' + id + '"'));
-  assert.match(code, /processed-glyphs\\.json/);
-  assert.match(code, /prefers-reduced-motion/);
-  assert.match(code, /drawLayer\\(second/);
-  assert.match(readFileSync(join(root, 'public/advantages/index.html'), 'utf8'), /href="\\.\\/gallery\\.html"/);
+  assert.ok(html.includes('id="glyph-field"'));
+  for (const id of ['family', 'energy', 'silence', 'pause-motion', 'reset-motion', 'gallery-status']) {
+    assert.ok(html.includes('id="' + id + '"'), 'missing interactive control ' + id);
+  }
+  assert.ok(code.includes('processed-glyphs.json'));
+  assert.ok(code.includes('prefers-reduced-motion'));
+  assert.ok(code.includes('drawLayer(second'));
+  assert.ok(readFileSync(join(root, 'public/advantages/index.html'), 'utf8').includes('href="./gallery.html"'));
 });
