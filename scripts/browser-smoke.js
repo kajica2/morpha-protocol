@@ -318,8 +318,19 @@ try {
   await cdp('Runtime.enable');
   await cdp('Page.enable');
 
+  // readyState 'complete' can precede the first title assignment in a
+  // freshly served document, so wait for a non-empty title as well. Without
+  // this the smoke test flakes against a just-started dev server.
+  //
+  // The title must also be the app's title. A dev server that is up but not
+  // yet serving the app returns an error page whose title is the host name
+  // ("127.0.0.1"), which would otherwise sail through as a loaded page and
+  // fail confusingly several checks later.
+  const EXPECTED_TITLE = 'MORPHA';
   await waitFor(
-    async () => (await evaluate('document.readyState')) === 'complete',
+    async () =>
+      (await evaluate('document.readyState')) === 'complete' &&
+      (await evaluate('document.title || ""')).trim() === EXPECTED_TITLE,
     20000,
     'page load'
   );
