@@ -23,6 +23,26 @@
       @keyframes fadeIn {
         to { opacity: 1; }
       }
+      /* Renderer diagnostics. Sits low and quiet; it only appears when the
+         renderer has something to report. */
+      .status {
+        position: fixed;
+        z-index: 30;
+        left: 50%;
+        bottom: 26px;
+        transform: translateX(-50%);
+        padding: 9px 16px;
+        border-radius: 4px;
+        background: #0b1720d9;
+        border: 1px solid #79cfb266;
+        color: #d9f8ee;
+        font: 500 12px/1.3 system-ui, sans-serif;
+        letter-spacing: .05em;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .35s ease;
+      }
+      .status[data-visible="true"] { opacity: 1; }
     </style>
   </head>
   <body>
@@ -30,6 +50,7 @@
     <div class="entry" id="entry-ritual">
       <p>enter quietly</p>
     </div>
+    <div id="status" class="status" role="status" aria-live="polite"></div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

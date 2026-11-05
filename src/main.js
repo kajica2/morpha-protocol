@@ -1,4 +1,5 @@
 import { Renderer } from './render/Renderer';
+import { detectReducedMotion } from './render/Quality.js';
 import { Glyph } from './glyphs/Glyph';
 import { GlyphQueue } from './glyphs/GlyphQueue';
 import { loadGlyphData, createGlyphFromPhoneme, getRandomPhoneme } from './glyphs/GlyphFactory';
@@ -78,14 +79,42 @@ entryRitual.addEventListener('click', async () => {
     });
 }, { once: true });
 
+/**
+ * Show or hide the status line.
+ *
+ * @param {string|null} message The message, or null to hide it.
+ */
+function showStatus(message) {
+  const element = document.getElementById('status');
+  if (!element) return;
+  if (!message) {
+    element.textContent = '';
+    element.dataset.visible = 'false';
+    return;
+  }
+  element.textContent = message;
+  element.dataset.visible = 'true';
+}
+
 function startRitual() {
   const appContainer = document.getElementById('app');
-  renderer = new Renderer(appContainer);
+  // Reduced motion is detected once, at start-up, and applied to both the
+  // simulation (the engine's morph rate) and the renderer (the shader's
+  // wave). It damps motion; it never freezes the field.
+  const reducedMotion = detectReducedMotion();
+  renderer = new Renderer(appContainer, {
+    reducedMotion,
+    // Surface a lost WebGL context. three.js writes to the console, where
+    // the person watching the ritual never sees it - a silent blank canvas
+    // is indistinguishable from a broken app.
+    onContextLost: () => showStatus('rendering paused — restoring'),
+    onContextRestored: () => showStatus(null),
+  });
   glyphQueue = new GlyphQueue(renderer); // Initialize GlyphQueue with the renderer
   canvasCapture = new CanvasCapture(renderer.renderer.domElement); // Initialize capture
 
   // The engine drives time, silence and the global morph.
-  engine = new Engine();
+  engine = new Engine({ reducedMotion });
   engine.start();
   engine.setMorphTarget(1);
 
