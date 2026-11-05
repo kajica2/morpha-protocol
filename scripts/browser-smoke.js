@@ -204,7 +204,13 @@ const chrome = spawn(chromePath, [
   '--use-fake-ui-for-media-stream',
   '--use-fake-device-for-media-stream',
   '--autoplay-policy=no-user-gesture-required',
-  APP_URL,
+  // NOTE: the URL is deliberately NOT passed here. Passing it as a startup
+  // argument makes Chrome create an initial empty document (origin "://")
+  // for the same frame as the real page. Runtime.evaluate without an
+  // explicit contextId then binds to that stale empty document, so
+  // document.title reads "" even though the real page is fully loaded.
+  // Navigating explicitly via Page.navigate below avoids the duplicate
+  // context entirely.
 ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
 let chromeStderr = '';
@@ -327,12 +333,19 @@ try {
   // ("127.0.0.1"), which would otherwise sail through as a loaded page and
   // fail confusingly several checks later.
   const EXPECTED_TITLE = 'MORPHA';
+  // Navigate explicitly rather than relying on a Chrome startup argument.
+  await cdp('Page.navigate', { url: APP_URL });
+
+  // Wait for the app's actual title, not merely a complete document. A
+  // complete document with an empty title means the evaluation is bound to
+  // the wrong execution context, and that must fail loudly rather than
+  // cascade into confusing downstream failures.
   await waitFor(
     async () =>
       (await evaluate('document.readyState')) === 'complete' &&
       (await evaluate('document.title || ""')).trim() === EXPECTED_TITLE,
     20000,
-    'page load'
+    `page load (title "${EXPECTED_TITLE}")`
   );
 
   const title = await evaluate('document.title');
