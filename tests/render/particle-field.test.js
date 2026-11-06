@@ -57,16 +57,23 @@ function snapshot(field) {
 }
 
 /**
- * Total distance travelled by every particle over a run, plus the number of
- * particles that moved at all.
+ * Total distance travelled by every particle over a run.
+ *
+ * Two totals are reported. `path` is every movement, including the jump a
+ * particle makes when it is recycled. `drift` is the movement that is too
+ * small to be a recycle - the actual drift of the field. Only `drift`
+ * responds to the drift speed: a recycle happens on a schedule set by the
+ * particle's life, not by how fast the field is moving, so `path` is
+ * dominated by teleports and would barely move when the drift is damped.
  *
  * @param {ParticleField} field The field to run.
  * @param {number} frames How many frames to run.
  * @param {object} [options] Frame options passed to every update.
- * @returns {{ path: number, moved: number }} The totals.
+ * @returns {{ path: number, drift: number, moved: number }} The totals.
  */
 function travel(field, frames, options = {}) {
   let path = 0;
+  let drift = 0;
   const movedFlags = new Array(field.getParticles().length).fill(false);
   let previous = snapshot(field);
 
@@ -76,12 +83,13 @@ function travel(field, frames, options = {}) {
     for (let i = 0; i < current.length; i += 1) {
       const step = Math.hypot(current[i].x - previous[i].x, current[i].y - previous[i].y);
       path += step;
+      if (step > 0 && step <= JUMP_THRESHOLD) drift += step;
       if (step > 0) movedFlags[i] = true;
     }
     previous = current;
   }
 
-  return { path, moved: movedFlags.filter(Boolean).length };
+  return { path, drift, moved: movedFlags.filter(Boolean).length };
 }
 
 // ------------------------------------------------------------ determinism
@@ -363,17 +371,17 @@ test('energy does not change the lifetime schedule', () => {
 
 test('the field still drifts at zero energy', () => {
   const field = new ParticleField({ seed: 3, count: 64 });
-  const { path, moved } = travel(field, 60, { energy: 0 });
+  const { drift, moved } = travel(field, 60, { energy: 0 });
 
   assert.ok(moved > 0, 'the field must keep moving in silence');
-  assert.ok(path > 0, 'the field must keep travelling in silence');
+  assert.ok(drift > 0, 'the field must keep drifting in silence');
 });
 
 test('the field still drifts with no options at all', () => {
   const field = new ParticleField({ seed: 3, count: 64 });
-  const { path } = travel(field, 60);
+  const { drift } = travel(field, 60);
 
-  assert.ok(path > 0, 'the default field must drift');
+  assert.ok(drift > 0, 'the default field must drift');
 });
 
 test('motionScale damps the drift without freezing it', () => {
@@ -383,10 +391,17 @@ test('motionScale damps the drift without freezing it', () => {
   const damped = travel(slow, 60, { motionScale: 0.25 });
   const full = travel(fast, 60, { motionScale: 1 });
 
-  assert.ok(damped.path > 0, 'reduced motion must not freeze the field');
+  assert.ok(damped.drift > 0, 'reduced motion must not freeze the field');
   assert.ok(
-    damped.path < full.path,
-    `reduced motion must damp the drift (damped=${damped.path}, full=${full.path})`,
+    damped.drift < full.drift,
+    `reduced motion must damp the drift (damped=${damped.drift}, full=${full.drift})`,
+  );
+  // The drift speed is scaled directly, so a quarter scale must travel
+  // roughly a quarter as far. A loose bound: the noise field bends the
+  // path, so the ratio is close to but not exactly 0.25.
+  assert.ok(
+    damped.drift < full.drift * 0.6,
+    `reduced motion must damp the drift substantially (damped=${damped.drift}, full=${full.drift})`,
   );
 });
 
@@ -495,8 +510,8 @@ test('a higher energy moves the particles further', () => {
   const busy = travel(loud, 60, { energy: 1 });
 
   assert.ok(
-    busy.path > still.path,
-    `energy must speed the drift up (quiet=${still.path}, loud=${busy.path})`,
+    busy.drift > still.drift,
+    `energy must speed the drift up (quiet=${still.drift}, loud=${busy.drift})`,
   );
 });
 
