@@ -335,6 +335,65 @@ try {
     return true;
   })()`);
 
+  if (argv.includes('--gallery')) {
+    await waitFor(
+      async () => (await evaluate("document.querySelector('#gallery-status')?.textContent || ''")).includes('family'),
+      20000,
+      'gallery glyph data to load'
+    );
+    const initial = await evaluate(`(() => {
+      const c = document.querySelector('#glyph-field');
+      if (!c) return null;
+      const ctx = c.getContext('2d');
+      const data = ctx.getImageData(0, 0, c.width, c.height).data;
+      let lit = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 1] > 95 && data[i + 1] > data[i] * 1.2) lit++;
+      }
+      return { width: c.width, height: c.height, lit, frame: c.toDataURL() };
+    })()`);
+    check(!!initial && initial.width > 100 && initial.height > 100, 'gallery canvas sized correctly');
+    check(initial?.lit > 30, `actual glyph strokes rendered (${initial?.lit || 0} teal pixels)`);
+    await sleep(700);
+    const movingFrame = await evaluate("document.querySelector('#glyph-field').toDataURL()");
+    check(initial?.frame !== movingFrame, 'glyph canvas animates continuously');
+
+    const changed = await evaluate(`(() => {
+      const family = document.querySelector('#family');
+      family.value = 'fracture';
+      family.dispatchEvent(new Event('change', { bubbles: true }));
+      const energy = document.querySelector('#energy');
+      energy.value = '89';
+      energy.dispatchEvent(new Event('input', { bubbles: true }));
+      const silence = document.querySelector('#silence');
+      silence.checked = true;
+      silence.dispatchEvent(new Event('change', { bubbles: true }));
+      return {
+        family: document.querySelector('#gallery-status').textContent,
+        energy: document.querySelector('#energy-value').textContent,
+        checked: silence.checked
+      };
+    })()`);
+    check(changed.family.includes('Fracture'), 'symbol family selector changes active glyph');
+    check(changed.energy === '89%', 'energy slider updates its output');
+    check(changed.checked && changed.family.includes('Silence'), 'silence influences field');
+
+    await evaluate("document.querySelector('#pause-motion').click()");
+    const paused = await evaluate("document.querySelector('#glyph-field').toDataURL()");
+    await sleep(400);
+    const pausedAfter = await evaluate("document.querySelector('#glyph-field').toDataURL()");
+    check(paused === pausedAfter, 'pause freezes the field');
+    const aria = await evaluate("document.querySelector('#pause-motion').getAttribute('aria-pressed')");
+    check(aria === 'true', 'pause has accessible pressed state');
+    await evaluate("document.querySelector('#reset-motion').click()");
+    check(await evaluate("document.querySelector('#pause-motion').getAttribute('aria-pressed')") === 'true',
+      'reset holds the field');
+
+    const errs = await evaluate('window.__errors || []');
+    check(errs.length === 0, 'gallery has no page errors');
+    check(pageErrors.length === 0, 'gallery has no uncaught exceptions');
+    check(consoleErrors.length === 0, 'gallery has no console errors');
+  } else {
   const entered = await evaluate(`(() => {
     const el = document.getElementById('entry-ritual');
     if (!el) return false;
@@ -374,6 +433,8 @@ try {
   check(runtimeErrors.length === 0, `no page errors (${runtimeErrors.length})`);
   check(pageErrors.length === 0, `no uncaught exceptions (${pageErrors.length})`);
   check(consoleErrors.length === 0, `no console errors (${consoleErrors.length})`);
+
+  }
 
   console.log('');
   if (failures.length) {
