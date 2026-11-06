@@ -36,11 +36,14 @@ jobs:
           test -f dist/index.html
           test -f dist/data/phonemes.json
           test -f dist/data/processed-glyphs.json
+          test -f dist/advantages/gallery.html
+          test -f dist/advantages/assets/gallery.js
       - name: Browser smoke test
         run: |
           npx --yes vite preview --port 4173 --host 127.0.0.1 --strictPort &
           npx --yes wait-on http://127.0.0.1:4173 --timeout 60000
           node scripts/browser-smoke.js --url http://127.0.0.1:4173
+          node scripts/browser-smoke.js --url http://127.0.0.1:4173/advantages/gallery.html --gallery
       - name: Upload CI artifact
         if: always()
         uses: actions/upload-artifact@v4
