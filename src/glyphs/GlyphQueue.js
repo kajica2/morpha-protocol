@@ -103,6 +103,12 @@ export class GlyphQueue {
         glyph.mesh.material.uniforms.uMorph.value = glyph.morphProgress;
         glyph.mesh.material.uniforms.uOpacity.value = glyph.currentOpacity;
         glyph.mesh.material.uniforms.uEmotion.value = fingerprint.emotionBias || 0;
+        // The distortion bends the glyph's geometry. It is written to the
+        // per-glyph uniform so each symbol bends by its own amount.
+        const distortion = glyph.mesh.material.uniforms.uDistortion;
+        if (distortion) {
+          distortion.value.set(glyph.distortion.x, glyph.distortion.y);
+        }
       }
     }
     for (const glyph of this.queue.filter(item => !item.isActive)) this.removeGlyph(glyph);

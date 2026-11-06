@@ -23,6 +23,7 @@ import {
   resolveMotionProfile,
   applyInfluenceToGlyph,
   influenceGlyph,
+  resolveDistortion,
 } from '../../src/glyphs/Influence.js';
 import { Glyph } from '../../src/glyphs/Glyph.js';
 import { GlyphQueue } from '../../src/glyphs/GlyphQueue.js';
@@ -536,4 +537,88 @@ test('influenceGlyph records the profile on the glyph', () => {
   assert.equal(glyph.motionProfile, profile);
   assert.ok(glyph.holdMultiplier > 0);
   assert.ok(glyph.decayMultiplier > 0);
+});
+
+// ------------------------------------------------------------- distortion
+//
+// The temporal memory's distortion bends a glyph's GEOMETRY. It never
+// changes opacity, colour or emotion. These tests are written from the
+// protocol rule rather than from the implementation.
+
+test('the distortion is scaled by the family affinity', () => {
+  const distortion = { x: 0.1, y: 0.05, amount: 0.8 };
+
+  // Echo is "memory, reflection, longing" - the family the temporal memory
+  // speaks to - so it bends the most.
+  const echo = resolveDistortion('echo', {}, distortion);
+  // Anchor is "presence, grounding, identity" - it holds its shape.
+  const anchor = resolveDistortion('anchor', {}, distortion);
+
+  assert.ok(
+    Math.abs(echo.x) > Math.abs(anchor.x),
+    `echo must bend more than anchor: ${echo.x} vs ${anchor.x}`
+  );
+  assert.ok(echo.amount > anchor.amount);
+});
+
+test('the distortion scales the magnitude, not just the offset', () => {
+  const full = resolveDistortion('flow', {}, { x: 0.2, y: 0.2, amount: 1 });
+  const half = resolveDistortion('flow', {}, { x: 0.1, y: 0.1, amount: 0.5 });
+
+  assert.ok(full.amount > half.amount);
+  assert.ok(Math.abs(full.x) > Math.abs(half.x));
+});
+
+test('a glyph own distortion affinity composes with its family', () => {
+  const distortion = { x: 0.2, y: 0, amount: 1 };
+  const plain = resolveDistortion('flow', {}, distortion);
+  const sensitive = resolveDistortion('flow', { distortionAffinity: 1 }, distortion);
+
+  assert.ok(
+    sensitive.amount > plain.amount,
+    'a more sensitive glyph must bend further'
+  );
+});
+
+test('no distortion means no bend', () => {
+  const none = resolveDistortion('echo', {}, {});
+  assert.equal(none.x, 0);
+  assert.equal(none.y, 0);
+  assert.equal(none.amount, 0);
+});
+
+test('a malformed distortion degrades to no bend rather than NaN', () => {
+  for (const bad of [null, undefined, { x: NaN, y: Infinity, amount: 'x' }]) {
+    const result = resolveDistortion('echo', {}, bad);
+    assert.ok(Number.isFinite(result.x), 'x must be finite');
+    assert.ok(Number.isFinite(result.y), 'y must be finite');
+    assert.ok(Number.isFinite(result.amount), 'amount must be finite');
+  }
+});
+
+test('the distortion does not change how a glyph looks', () => {
+  // The bend is geometric. Opacity and morph progress are appearance and
+  // must be untouched by it.
+  //
+  // Two glyphs are compared at the SAME elapsed time, so the only
+  // difference between them is the distortion. Comparing a glyph against
+  // itself at two different times would confound the distortion with the
+  // morph's own progress.
+  const geometry = new Float32Array([0, 0, 1, 0, 1, 1]);
+  const plain = new Glyph(geometry, 'echo', 0, { fadeTime: 6 });
+  const bent = new Glyph(geometry, 'echo', 0, { fadeTime: 6 });
+
+  plain.update(0.016, 0.5, {}, 0, {}, {});
+  bent.update(0.016, 0.5, {}, 0, {}, {
+    distortion: { x: 0.5, y: 0.5, amount: 1 },
+  });
+
+  assert.equal(bent.currentOpacity, plain.currentOpacity, 'opacity must not change');
+  assert.equal(bent.morphProgress, plain.morphProgress, 'morph progress must not change');
+  assert.equal(bent.morphSpeed, plain.morphSpeed, 'morph rate must not change');
+  assert.ok(
+    Math.abs(bent.distortion.x) > 0,
+    'the glyph must actually bend'
+  );
+  assert.equal(plain.distortion.x, 0, 'the unbent glyph must not bend');
 });

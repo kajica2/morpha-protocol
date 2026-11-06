@@ -1,4 +1,4 @@
-import { influenceGlyph } from './Influence.js';
+import { influenceGlyph, resolveDistortion } from './Influence.js';
 
 // Maximum morph progress change allowed in a single frame. Keeps the
 // transformation continuous even if a caller injects an enormous delta.
@@ -31,6 +31,9 @@ export class Glyph {
     this.holdMultiplier = 1;
     this.decayMultiplier = 1;
     this.phase = 0;
+    // The glyph's own bend under the temporal memory's distortion. This is
+    // a geometric offset, not an appearance change.
+    this.distortion = { x: 0, y: 0, amount: 0 };
     // A retiring glyph has been asked to leave. It still completes its morph
     // and still decays - it simply skips the hold and begins decaying as
     // soon as the transformation is done.
@@ -66,6 +69,15 @@ export class Glyph {
       this.semanticWeight,
       influence,
       silenceWeight,
+    );
+
+    // Resolve this glyph's own bend under the temporal memory. The
+    // distortion lives on the influence, so a glyph that is not influenced
+    // by sound is not influenced by its memory either.
+    this.distortion = resolveDistortion(
+      this.family,
+      this.semanticWeight,
+      influence.distortion,
     );
 
     // Morph toward the target shape over morphDuration. Progress is derived

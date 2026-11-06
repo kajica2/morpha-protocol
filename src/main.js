@@ -11,7 +11,7 @@ import { CanvasCapture } from './export/Capture';
 import { initGoogleAuth, handleAuthClick, isAuthorized, isAuthAvailable } from './storage/DriveAuth';
 import { uploadFileToDrive } from './storage/DriveUpload';
 import { Engine } from './core/Engine.js';
-import { mapAudioToInfluence } from './audio/AudioMap.js';
+import { createInfluenceChain } from './audio/FrameInfluence.js';
 
 console.log("MORPHA Implementation Initialized");
 
@@ -25,7 +25,11 @@ let canvasCapture;
 // The engine owns the clock, the state and the morph. It is deterministic,
 // clamped against tab-suspend gaps, and independently unit tested.
 let engine;
-let previousInfluence = null;
+// The influence chain: the live structural influence, the remembered
+// influence, and the decaying distortion the memory produces. It reads the
+// frame delta from the engine's frame, so the total elapsed time cannot
+// reach the integrator by mistake.
+let influenceChain;
 
 let longPressTimer = null;
 const LONG_PRESS_DURATION = 1000; // 1 second for long press
@@ -117,6 +121,13 @@ function startRitual() {
   engine = new Engine({ reducedMotion });
   engine.start();
   engine.setMorphTarget(1);
+
+  // The influence chain carries the influence of past sound forward. Its
+  // strength comes from the quality preset, so a low-power device gets a
+  // shorter memory.
+  influenceChain = createInfluenceChain({
+    strength: renderer.quality.temporalMemory,
+  });
 
   // Protocol grammar: "At least two symbol instances MUST overlap at all
   // times." An utterance opens with overlapping symbols, not a lone glyph.
@@ -231,13 +242,22 @@ function animate(time = 0) {
   // the smoothing away.
   engine.feedSilence(deltaTime, isSilent(), silenceWeight);
 
-  // Structural influence: sound biases morph velocity, resistance,
-  // persistence and phase rather than mapping volume straight to brightness.
-  const influence = mapAudioToInfluence(audioData, {
-    previous: previousInfluence,
-    elapsed: globalTime,
-  });
-  previousInfluence = influence;
+  // The chain produces the live influence, the remembered influence and the
+  // decaying distortion in one step.
+  //
+  // It is given the engine's FRAME, not a loose number. The render loop
+  // once passed the total elapsed time here where the frame delta was
+  // expected: the phase accumulator then integrated the whole runtime on
+  // every frame - at 30 seconds in, the phase had run to 22.5 radians
+  // instead of the ~0.005 a 0.3 rad/s drift produces - and the direction
+  // filter's factor (1 - exp(-dt/tau)) saturated at 1, disabling the
+  // smoothing entirely.
+  //
+  // The chain also keeps the centroid between frames. The previous
+  // influence object does NOT carry a centroid, so the signed spectral
+  // change - and with it the direction - was always zero. Fracture's and
+  // Echo's directional asymmetry could therefore never activate.
+  const influence = influenceChain.updateFrame(frame, audioData);
 
   // Update user fingerprint dynamically
   userFingerprint = updateUserFingerprint(userFingerprint, audioData, silenceWeight, glyphQueue.queue.length > 0 ? glyphQueue.queue[glyphQueue.queue.length - 1].morphProgress : 0);

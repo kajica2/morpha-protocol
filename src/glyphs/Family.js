@@ -25,6 +25,8 @@
  *                                 a means of emphasis.
  * @property {number} asymmetry    0..1. How strongly the morph rate depends on
  *                                 the direction of the influence.
+ * @property {number} distortionAffinity 0..1. How readily the symbol bends
+ *                                 under the temporal memory's distortion.
  */
 
 /**
@@ -39,6 +41,7 @@ export const NEUTRAL_PROFILE = Object.freeze({
   persistence: 1.0,
   decay: 1.0,
   asymmetry: 0.0,
+  distortionAffinity: 0.5,
 });
 
 /**
@@ -54,6 +57,9 @@ export const FAMILY_PROFILES = Object.freeze({
     persistence: 1.15,
     decay: 0.85,
     asymmetry: 0.0,
+    // Grounding and identity hold their shape. An Anchor is the last thing
+    // a remembered sound bends.
+    distortionAffinity: 0.15,
   }),
   // Flow - "movement, time, becoming". Low resistance, directional continuity.
   // It passes through rather than lingering.
@@ -63,6 +69,8 @@ export const FAMILY_PROFILES = Object.freeze({
     persistence: 0.7,
     decay: 0.75,
     asymmetry: 0.0,
+    // Becoming takes the shape of what passes through it.
+    distortionAffinity: 0.7,
   }),
   // Fracture - "rupture, decision, conflict". Asymmetric resistance and
   // instability; it does not settle.
@@ -72,6 +80,8 @@ export const FAMILY_PROFILES = Object.freeze({
     persistence: 0.6,
     decay: 0.7,
     asymmetry: 0.6,
+    // Rupture deforms readily, and unevenly.
+    distortionAffinity: 0.55,
   }),
   // Void - "silence, waiting, surrender". Minimal mass, LONG DECAY and
   // dominance through absence. It must outlive the other families.
@@ -81,6 +91,8 @@ export const FAMILY_PROFILES = Object.freeze({
     persistence: 1.7,
     decay: 1.5,
     asymmetry: 0.0,
+    // Minimal mass. There is little here for a distortion to bend.
+    distortionAffinity: 0.2,
   }),
   // Echo - "memory, reflection, longing". Delayed repetition and persistence.
   echo: Object.freeze({
@@ -89,6 +101,9 @@ export const FAMILY_PROFILES = Object.freeze({
     persistence: 1.45,
     decay: 1.25,
     asymmetry: 0.25,
+    // Memory, reflection, longing. Echo IS the family the temporal memory
+    // speaks to, so it bends the most.
+    distortionAffinity: 1.0,
   }),
 });
 

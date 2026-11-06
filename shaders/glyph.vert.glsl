@@ -16,6 +16,11 @@ uniform float uAspect;
 uniform float uPointSize;
 uniform float uMotionScale;
 
+// The temporal memory's distortion. A transient that has already ended
+// keeps bending the glyph for a moment, so the sound leaves a shape
+// rather than simply stopping.
+uniform vec2 uDistortion;
+
 varying float vEnergy;
 
 float easeInOut(float t) {
@@ -39,6 +44,11 @@ void main() {
 
   pos.x += wave * uWarp * uMotionScale;
   pos.y += wave * 0.5 * uMotionScale;
+
+  // The distortion displaces the glyph. It is a geometric bend, not a
+  // change of appearance: the symbol's opacity, colour and emotion are
+  // untouched by it.
+  pos += uDistortion;
 
   vEnergy = abs(wave) + uAudio * 0.4;
 

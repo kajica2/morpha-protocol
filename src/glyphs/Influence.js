@@ -30,6 +30,8 @@ import { getFamilyProfile } from './Family.js';
  * @property {number} [direction]
  * @property {number} [phase]
  * @property {number} [decay]
+ * @property {{x:number, y:number, amount:number}} [distortion] The temporal
+ *   memory's decaying distortion, carried in world units.
  */
 
 /**
@@ -154,6 +156,42 @@ export function resolveMotionProfile(
     decay,
     asymmetry,
     phase,
+  };
+}
+
+/**
+ * Resolve how far one glyph bends under the temporal memory's distortion.
+ *
+ * The distortion is a global memory of past sound. Each family receives it
+ * differently: an Anchor holds its shape, an Echo - the family that IS
+ * memory - bends the most. The glyph's own semantic weight composes on top
+ * in the same way its resistance does.
+ *
+ * This is a geometric bend. It changes where the symbol's points are, never
+ * how they look: opacity, colour and emotion are untouched.
+ *
+ * @param {string} family Symbol family name.
+ * @param {object} [semanticWeight] The glyph's own semantic weight.
+ * @param {{x?:number, y?:number, amount?:number}} [distortion] The global
+ *   distortion from the temporal memory.
+ * @returns {{x:number, y:number, amount:number}} The glyph's own distortion.
+ */
+export function resolveDistortion(family, semanticWeight = {}, distortion = {}) {
+  const base = getFamilyProfile(family);
+
+  const amount = num(distortion, 'amount', 0);
+  const x = num(distortion, 'x', 0);
+  const y = num(distortion, 'y', 0);
+
+  // The family's affinity scales the bend, and the glyph's own weight
+  // composes with it. A glyph that resists motion resists the bend too.
+  const ownAffinity = clamp(num(semanticWeight, 'distortionAffinity', 0), 0, 1);
+  const affinity = clamp(base.distortionAffinity * (0.5 + ownAffinity * 0.5), 0, 1);
+
+  return {
+    x: x * affinity,
+    y: y * affinity,
+    amount: amount * affinity,
   };
 }
 

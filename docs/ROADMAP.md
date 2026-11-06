@@ -89,13 +89,34 @@ microphone audio never leaves the device.
 
 | # | Task | Status |
 |---|------|--------|
-| 3.1 | Layered particle fields | `[ ]` |
-| 3.2 | Organic motion / temporal memory | `[ ]` |
-| 3.3 | Configurable rendering quality | `[ ]` |
-| 3.4 | Camera and viewport management | `[~]` Aspect correction and resize handling exist. |
-| 3.5 | WebGL context-loss recovery | `[ ]` |
-| 3.6 | Reduced-motion support | `[~]` Engine honours `reducedMotion`; renderer does not yet. |
-| 3.7 | Responsive rendering (desktop + mobile) | `[ ]` |
+| 3.1 | Layered particle fields | `[~]` `src/render/ParticleField.js` — deterministic depth planes, no-cut lifecycle. Shaders and renderer wiring land with this branch. |
+| 3.2 | Organic motion / temporal memory | `[~]` `src/core/InfluenceMemory.js` — asymmetric envelope, decaying distortion. Per-family `distortionAffinity` in `src/glyphs/Family.js`. |
+| 3.3 | Configurable rendering quality | `[x]` `src/render/Quality.js` — presets, pixel-ratio cap, auto-downgrade on ≤4 cores. |
+| 3.4 | Camera and viewport management | `[~]` Aspect correction and resize handling exist. The particle field's projection is now explicit in `src/render/Projection.js`. Full camera work is Milestone C. |
+| 3.5 | WebGL context-loss recovery | `[x]` `src/render/ContextRecovery.js` — the loss is surfaced to the user, which three.js cannot do. See the note in `docs/PHASE-3-VISUAL-ENGINE.md`: three.js already prevents the permanent black screen. |
+| 3.6 | Reduced-motion support | `[x]` Detected from `prefers-reduced-motion` and applied to both the engine's morph rate and the renderer's shader motion. Damps; never freezes. |
+| 3.7 | Responsive rendering (desktop + mobile) | `[~]` Pixel ratio applied and capped by quality. A full mobile pass is Milestone C. |
+
+### Two protocol bugs found while building Milestone B
+
+Both pre-existed on `main` and were found by measurement, not by reading the
+code:
+
+1. **The phase accumulator integrated the whole runtime every frame.**
+   `main.js` passed `elapsed: globalTime` where the mapper expects the
+   FRAME DELTA. At 30 seconds in, the phase had run to 22.5 radians
+   instead of the ~0.005 a 0.3 rad/s drift produces, and the direction
+   filter's factor `(1 - exp(-dt/tau))` had saturated at 1, disabling the
+   smoothing entirely.
+
+2. **The signed direction was always zero.** `main.js` passed the previous
+   *influence* back as `previous`, but the mapper reads `previous.centroid`
+   — and the influence object does not carry one. So the signed spectral
+   change was never computed, and Fracture's and Echo's directional
+   asymmetry could not activate. The runtime now uses the mapper's own
+   stateful `createInfluenceMapper()`.
+
+Both are covered by `tests/integration/influence-wiring.test.js`.
 
 ---
 

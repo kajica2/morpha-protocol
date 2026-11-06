@@ -4,6 +4,10 @@ import fragmentShader from '../../shaders/glyph.frag.glsl?raw';
 import { buildGlyphAttributes } from './GlyphGeometry.js';
 import { resolveQuality, detectReducedMotion } from './Quality.js';
 import { createContextRecovery } from './ContextRecovery.js';
+import { ParticleField } from './ParticleField.js';
+import { createFieldProjection, projectFieldPoint } from './Projection.js';
+import particleVertexShader from '../../shaders/particle.vert.glsl?raw';
+import particleFragmentShader from '../../shaders/particle.frag.glsl?raw';
 
 /**
  * WebGL renderer for the MORPHA glyph field.
@@ -69,6 +73,9 @@ export class Renderer {
       // recompile.
       uPointSize: { value: this.quality.pointSize },
       uMotionScale: { value: this.quality.motionScale },
+      // The particle field is atmosphere: its points are smaller than the
+      // glyph points so the glyphs stay the subject.
+      uPointScale: { value: this.quality.pointSize * 0.45 },
     };
 
     // Kept for backwards compatibility with existing callers that read
@@ -91,6 +98,16 @@ export class Renderer {
 
     this.glyphMeshes = []; // Array to hold multiple glyph meshes
     this.disposed = false;
+
+    // The ambient particle field. It is atmosphere, not signal: several
+    // depth planes of drifting points that give the ritual a room to sit
+    // in. The particle count comes from the quality preset, so a modest
+    // machine gets a lighter field.
+    this.particleField = new ParticleField({
+      count: this.quality.particleCount,
+      seed: 1337,
+    });
+    this.particleMesh = this.createParticleMesh();
 
     // three.js already handles a lost context internally: it cancels the
     // event, skips rendering while the context is gone and re-initialises
@@ -170,6 +187,8 @@ export class Renderer {
         uMorph: { value: initialMorph },
         uOpacity: { value: initialOpacity },
         uEmotion: { value: 0 },
+        // Per-glyph distortion, written by the temporal memory each frame.
+        uDistortion: { value: new THREE.Vector2(0, 0) },
       },
     });
 
@@ -238,6 +257,7 @@ export class Renderer {
           uMorph: { value: previous?.uMorph?.value ?? 0 },
           uOpacity: { value: previous?.uOpacity?.value ?? 1 },
           uEmotion: { value: previous?.uEmotion?.value ?? 0 },
+          uDistortion: { value: previous?.uDistortion?.value?.clone?.() ?? new THREE.Vector2(0, 0) },
         },
       });
 
@@ -249,6 +269,94 @@ export class Renderer {
     }
 
     return sources.length;
+  }
+
+  /**
+   * Build the mesh that draws the ambient particle field.
+   *
+   * The geometry is rebuilt from the simulation every frame rather than
+   * written into on the CPU each frame: the simulation owns the particle
+   * state, and the renderer only mirrors it into buffers.
+   *
+   * @returns {THREE.Points} The particle mesh.
+   */
+  createParticleMesh() {
+    const particles = this.particleField.getParticles();
+    const count = particles.length;
+
+    const positions = new Float32Array(count * 3);
+    const sizes = new Float32Array(count);
+    const alphas = new Float32Array(count);
+    const depths = new Float32Array(count);
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
+    geometry.setAttribute('aAlpha', new THREE.BufferAttribute(alphas, 1));
+    geometry.setAttribute('aDepth', new THREE.BufferAttribute(depths, 1));
+    geometry.setDrawRange(0, count);
+
+    const material = new THREE.ShaderMaterial({
+      vertexShader: particleVertexShader,
+      fragmentShader: particleFragmentShader,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms: {
+        uTime: this.sharedUniforms.uTime,
+        uAudio: this.sharedUniforms.uAudio,
+        uAspect: this.sharedUniforms.uAspect,
+        uMotionScale: this.sharedUniforms.uMotionScale,
+        uPointScale: this.sharedUniforms.uPointScale,
+        uColorA: this.sharedUniforms.uColorA,
+        uColorB: this.sharedUniforms.uColorB,
+      },
+    });
+
+    const mesh = new THREE.Points(geometry, material);
+    mesh.frustumCulled = false;
+    // The particle field is behind the glyphs. Render order makes that
+    // explicit rather than leaving it to the depth buffer, which the
+    // transparent glyph materials do not write to.
+    mesh.renderOrder = -1;
+    this.scene.add(mesh);
+    return mesh;
+  }
+
+  /**
+   * Mirror the particle simulation into the GPU buffers.
+   */
+  updateParticleMesh() {
+    const particles = this.particleField.getParticles();
+    const geometry = this.particleMesh?.geometry;
+    if (!geometry) return;
+
+    const position = geometry.getAttribute('position');
+    const size = geometry.getAttribute('aSize');
+    const alpha = geometry.getAttribute('aAlpha');
+    const depth = geometry.getAttribute('aDepth');
+
+    // The simulation works in field units; the camera works in NDC. The
+    // projection maps one onto the other - see Projection.js for why the
+    // y range is not simply -1 .. 1.
+    const projection = createFieldProjection(
+      this.particleField.getBounds(),
+      this.sharedUniforms.uAspect.value,
+    );
+
+    for (let i = 0; i < particles.length; i += 1) {
+      const particle = particles[i];
+      const point = projectFieldPoint(particle.x, particle.y, projection);
+      position.setXYZ(i, point.x, point.y, 0);
+      size.setX(i, particle.size);
+      alpha.setX(i, particle.alpha);
+      depth.setX(i, particle.depth);
+    }
+
+    position.needsUpdate = true;
+    size.needsUpdate = true;
+    alpha.needsUpdate = true;
+    depth.needsUpdate = true;
   }
 
   removeGlyphMesh(mesh) {
@@ -270,6 +378,15 @@ export class Renderer {
     this.sharedUniforms.uColorA.value.set(userFingerprint.colorA || 0xffffff);
     this.sharedUniforms.uColorB.value.set(userFingerprint.colorB || 0x000000);
 
+    // The ambient field drifts with the sound. Energy biases the drift,
+    // never the particles' appearance (protocol section 3.3).
+    this.particleField.update(deltaTime, {
+      time: globalTime,
+      energy: audioData.amp,
+      motionScale: this.quality.motionScale,
+    });
+    this.updateParticleMesh();
+
     // Drawing into a lost context throws. Skip the draw while the context
     // is gone; the field resumes when the context comes back.
     if (this.isContextLost) return;
@@ -287,6 +404,13 @@ export class Renderer {
     for (const mesh of [...this.glyphMeshes]) {
       this.removeGlyphMesh(mesh);
     }
+    if (this.particleMesh) {
+      this.scene.remove(this.particleMesh);
+      this.particleMesh.geometry.dispose();
+      this.particleMesh.material.dispose();
+      this.particleMesh = null;
+    }
+    this.particleField?.dispose();
     this.material.dispose();
     this.renderer.dispose();
     if (this.renderer.domElement.parentNode) {
