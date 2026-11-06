@@ -43,9 +43,12 @@
         transition: opacity .35s ease;
       }
       .status[data-visible="true"] { opacity: 1; }
+      .learn-about { position: fixed; z-index: 20; top: 24px; right: 24px; color: #d9f8ee; background: #0b1720d9; border: 1px solid #79cfb266; padding: 10px 15px; border-radius: 6px; text-decoration: none; font: 600 12px/1.2 system-ui, sans-serif; letter-spacing: .07em; }
+      .learn-about:hover, .learn-about:focus-visible { color: #fff; border-color: #91f4d6; }
     </style>
   </head>
   <body>
+    <a class="learn-about" href="./advantages/index.html">Why MORPHA? ↗</a>
     <div id="app"></div>
     <div class="entry" id="entry-ritual">
       <p>enter quietly</p>
