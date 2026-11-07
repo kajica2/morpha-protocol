@@ -204,7 +204,13 @@ const chrome = spawn(chromePath, [
   '--use-fake-ui-for-media-stream',
   '--use-fake-device-for-media-stream',
   '--autoplay-policy=no-user-gesture-required',
-  APP_URL,
+  // NOTE: the URL is deliberately NOT passed here. Passing it as a startup
+  // argument makes Chrome create an initial empty document (origin "://")
+  // for the same frame as the real page. Runtime.evaluate without an
+  // explicit contextId then binds to that stale empty document, so
+  // document.title reads "" even though the real page is fully loaded.
+  // Navigating explicitly via Page.navigate below avoids the duplicate
+  // context entirely.
 ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
 let chromeStderr = '';
@@ -318,10 +324,61 @@ try {
   await cdp('Runtime.enable');
   await cdp('Page.enable');
 
+  // readyState 'complete' can precede the first title assignment in a
+  // freshly served document, so wait for a non-empty title as well. Without
+  // this the smoke test flakes against a just-started dev server.
+  //
+  // The title check has three jobs, and all three are needed:
+  //
+  //  1. It must be NON-EMPTY. Chrome creates an initial empty document for
+  //     the same frame as the real page, and Runtime.evaluate without an
+  //     explicit context binds to that stale document, where the title is
+  //     "". This is the failure the smoke test originally had.
+  //  2. It must not be the HOST NAME. A server that is up but not yet
+  //     serving the page returns an error page whose title is the host
+  //     name, which would sail through as a loaded page and fail
+  //     confusingly several checks later.
+  //  3. It must be the title the page DECLARES. The expected title is read
+  //     from the served HTML rather than hard-coded, so the same check
+  //     works for the app AND for the gallery page, whose title is
+  //     "Interactive Glyph Gallery - MORPHA Protocol". Hard-coding
+  //     "MORPHA" broke the gallery run when this check was first added.
+  //
+  // Navigate explicitly rather than relying on a Chrome startup argument.
+  await cdp('Page.navigate', { url: APP_URL });
+
+  const hostName = new URL(APP_URL).hostname;
+
+  /**
+   * Read the title the server says it is serving.
+   *
+   * @returns {Promise<string>} The declared title, or '' if it cannot be read.
+   */
+  const readServedTitle = async () => {
+    try {
+      const html = await (await fetch(APP_URL)).text();
+      const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+      return match ? match[1].trim() : '';
+    } catch {
+      return '';
+    }
+  };
+
   await waitFor(
-    async () => (await evaluate('document.readyState')) === 'complete',
+    async () => {
+      if ((await evaluate('document.readyState')) !== 'complete') return false;
+
+      const liveTitle = (await evaluate('document.title || ""')).trim();
+      if (!liveTitle) return false;
+      if (liveTitle === hostName) return false;
+
+      const servedTitle = await readServedTitle();
+      if (servedTitle && liveTitle !== servedTitle) return false;
+
+      return true;
+    },
     20000,
-    'page load'
+    'page load (a real title, matching the served HTML)'
   );
 
   const title = await evaluate('document.title');

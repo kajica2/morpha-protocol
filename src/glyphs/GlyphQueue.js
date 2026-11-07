@@ -46,8 +46,28 @@ export class GlyphQueue {
    * symbol disappears without a decay.
    */
   evictIfNeeded() {
-    while (this.queue.length > this.maxGlyphs) {
-      this.removeGlyph(this.queue.shift());
+    // protocol section 6: "No symbol MAY be removed without decay". A
+    // visible symbol is never cut away to make room for a new one. The
+    // oldest symbol is instead asked to retire: it completes the
+    // transformation it is performing and then decays away, releasing its
+    // mesh when it goes.
+    //
+    // The ceiling is therefore a bound on the field's steady-state size, not
+    // a reason to break the grammar rule.
+    // Only as many glyphs as are needed are asked to leave, oldest first.
+    // Marking every glyph would empty the field and break the overlap rule.
+    //
+    // A glyph that is already retiring counts towards the excess: it is
+    // already on its way out and does not need to be asked twice.
+    let excess = this.queue.length - this.maxGlyphs;
+    for (const glyph of this.queue) {
+      if (excess <= 0) break;
+      if (glyph.isRetiring) {
+        excess -= 1;
+        continue;
+      }
+      glyph.requestRetirement();
+      excess -= 1;
     }
   }
 
@@ -61,13 +81,34 @@ export class GlyphQueue {
     return this.getActiveGlyphs().length >= this.minOverlap;
   }
 
-  update(deltaTime, time, audioData, silenceWeight, fingerprint = {}) {
+  /**
+   * Whether the field needs a new symbol to stay compliant.
+   *
+   * protocol section 6 requires at least two overlapping symbols at all
+   * times. A glyph can complete its decay and be removed on any update, so
+   * holding exactly the minimum is not enough: removing one would leave the
+   * field with a single symbol. The field therefore needs one symbol of
+   * headroom over the minimum for the guarantee to hold across a removal.
+   *
+   * @returns {boolean}
+   */
+  needsReplenishment() {
+    return this.getActiveGlyphs().length < this.minOverlap + 1;
+  }
+
+  update(deltaTime, time, audioData, silenceWeight, fingerprint = {}, influence = {}) {
     for (const glyph of this.queue) {
-      glyph.update(deltaTime, time, audioData, silenceWeight, fingerprint);
+      glyph.update(deltaTime, time, audioData, silenceWeight, fingerprint, influence);
       if (glyph.mesh) {
         glyph.mesh.material.uniforms.uMorph.value = glyph.morphProgress;
         glyph.mesh.material.uniforms.uOpacity.value = glyph.currentOpacity;
         glyph.mesh.material.uniforms.uEmotion.value = fingerprint.emotionBias || 0;
+        // The distortion bends the glyph's geometry. It is written to the
+        // per-glyph uniform so each symbol bends by its own amount.
+        const distortion = glyph.mesh.material.uniforms.uDistortion;
+        if (distortion) {
+          distortion.value.set(glyph.distortion.x, glyph.distortion.y);
+        }
       }
     }
     for (const glyph of this.queue.filter(item => !item.isActive)) this.removeGlyph(glyph);

@@ -1,16 +1,17 @@
 import { Renderer } from './render/Renderer';
+import { detectReducedMotion } from './render/Quality.js';
 import { Glyph } from './glyphs/Glyph';
 import { GlyphQueue } from './glyphs/GlyphQueue';
 import { loadGlyphData, createGlyphFromPhoneme, getRandomPhoneme } from './glyphs/GlyphFactory';
 import { initAudioInput, stopAudioInput } from './audio/AudioInput';
 import { getAudioEnergy } from './audio/Analyzer';
-import { updateSilence, getSilenceWeight } from './audio/Silence';
+import { updateSilence, getSilenceWeight, isSilent } from './audio/Silence';
 import { loadUserFingerprint, saveUserFingerprint, updateUserFingerprint } from './storage/SessionStore';
 import { CanvasCapture } from './export/Capture';
 import { initGoogleAuth, handleAuthClick, isAuthorized, isAuthAvailable } from './storage/DriveAuth';
 import { uploadFileToDrive } from './storage/DriveUpload';
 import { Engine } from './core/Engine.js';
-import { mapAudioToInfluence } from './audio/AudioMap.js';
+import { createInfluenceChain } from './audio/FrameInfluence.js';
 
 console.log("MORPHA Implementation Initialized");
 
@@ -24,7 +25,11 @@ let canvasCapture;
 // The engine owns the clock, the state and the morph. It is deterministic,
 // clamped against tab-suspend gaps, and independently unit tested.
 let engine;
-let previousInfluence = null;
+// The influence chain: the live structural influence, the remembered
+// influence, and the decaying distortion the memory produces. It reads the
+// frame delta from the engine's frame, so the total elapsed time cannot
+// reach the integrator by mistake.
+let influenceChain;
 
 let longPressTimer = null;
 const LONG_PRESS_DURATION = 1000; // 1 second for long press
@@ -78,16 +83,51 @@ entryRitual.addEventListener('click', async () => {
     });
 }, { once: true });
 
+/**
+ * Show or hide the status line.
+ *
+ * @param {string|null} message The message, or null to hide it.
+ */
+function showStatus(message) {
+  const element = document.getElementById('status');
+  if (!element) return;
+  if (!message) {
+    element.textContent = '';
+    element.dataset.visible = 'false';
+    return;
+  }
+  element.textContent = message;
+  element.dataset.visible = 'true';
+}
+
 function startRitual() {
   const appContainer = document.getElementById('app');
-  renderer = new Renderer(appContainer);
+  // Reduced motion is detected once, at start-up, and applied to both the
+  // simulation (the engine's morph rate) and the renderer (the shader's
+  // wave). It damps motion; it never freezes the field.
+  const reducedMotion = detectReducedMotion();
+  renderer = new Renderer(appContainer, {
+    reducedMotion,
+    // Surface a lost WebGL context. three.js writes to the console, where
+    // the person watching the ritual never sees it - a silent blank canvas
+    // is indistinguishable from a broken app.
+    onContextLost: () => showStatus('rendering paused — restoring'),
+    onContextRestored: () => showStatus(null),
+  });
   glyphQueue = new GlyphQueue(renderer); // Initialize GlyphQueue with the renderer
   canvasCapture = new CanvasCapture(renderer.renderer.domElement); // Initialize capture
 
   // The engine drives time, silence and the global morph.
-  engine = new Engine();
+  engine = new Engine({ reducedMotion });
   engine.start();
   engine.setMorphTarget(1);
+
+  // The influence chain carries the influence of past sound forward. Its
+  // strength comes from the quality preset, so a low-power device gets a
+  // shorter memory.
+  influenceChain = createInfluenceChain({
+    strength: renderer.quality.temporalMemory,
+  });
 
   // Protocol grammar: "At least two symbol instances MUST overlap at all
   // times." An utterance opens with overlapping symbols, not a lone glyph.
@@ -160,7 +200,7 @@ async function saveCurrentRitual() {
   });
 }
 
-function addRandomGlyph() {
+function addRandomGlyph({ scheduleNext = true } = {}) {
   // The engine owns the clock, so the current simulation time comes from it
   // rather than from a variable local to the render loop. The engine's clock
   // carries the elapsed time.
@@ -170,7 +210,11 @@ function addRandomGlyph() {
   if (newGlyph) {
     glyphQueue.addGlyph(newGlyph.geometry, newGlyph.family, globalTime, newGlyph.semanticWeight);
   }
-  nextGlyphTime = globalTime + (Math.random() * 3 + 2); // Next glyph in 2-5 seconds
+  // A demand-driven add must not postpone the next scheduled one, or the
+  // rhythm of the ritual would drift every time the field needed topping up.
+  if (scheduleNext) {
+    nextGlyphTime = globalTime + (Math.random() * 3 + 2); // Next glyph in 2-5 seconds
+  }
 }
 
 function animate(time = 0) {
@@ -189,15 +233,31 @@ function animate(time = 0) {
 
   // Silence is input, not an absence. It enters the engine as a signal and
   // biases the morph rather than halting it.
-  engine.updateSilence(deltaTime, silenceDuration > 0.5);
+  //
+  // Two values are supplied deliberately. The hysteresis-aware boolean feeds
+  // the engine's duration accumulator, so a borderline mic does not chatter
+  // the duration on and off. The continuous weight then overrides the
+  // engine's coarse ramp, so the resistance the morph feels is the detector's
+  // smooth value rather than a step. Feeding a threshold instead would throw
+  // the smoothing away.
+  engine.feedSilence(deltaTime, isSilent(), silenceWeight);
 
-  // Structural influence: sound biases morph velocity, resistance,
-  // persistence and phase rather than mapping volume straight to brightness.
-  const influence = mapAudioToInfluence(audioData, {
-    previous: previousInfluence,
-    elapsed: globalTime,
-  });
-  previousInfluence = influence;
+  // The chain produces the live influence, the remembered influence and the
+  // decaying distortion in one step.
+  //
+  // It is given the engine's FRAME, not a loose number. The render loop
+  // once passed the total elapsed time here where the frame delta was
+  // expected: the phase accumulator then integrated the whole runtime on
+  // every frame - at 30 seconds in, the phase had run to 22.5 radians
+  // instead of the ~0.005 a 0.3 rad/s drift produces - and the direction
+  // filter's factor (1 - exp(-dt/tau)) saturated at 1, disabling the
+  // smoothing entirely.
+  //
+  // The chain also keeps the centroid between frames. The previous
+  // influence object does NOT carry a centroid, so the signed spectral
+  // change - and with it the direction - was always zero. Fracture's and
+  // Echo's directional asymmetry could therefore never activate.
+  const influence = influenceChain.updateFrame(frame, audioData);
 
   // Update user fingerprint dynamically
   userFingerprint = updateUserFingerprint(userFingerprint, audioData, silenceWeight, glyphQueue.queue.length > 0 ? glyphQueue.queue[glyphQueue.queue.length - 1].morphProgress : 0);
@@ -212,8 +272,20 @@ function animate(time = 0) {
   // Sound biases how fast the glyphs morph and how strongly they resist.
   renderer.sharedUniforms.uBreath.value = (userFingerprint.breath || 0.4) * (0.6 + influence.persistence * 0.8);
 
-  // Update glyph queue and individual glyphs
-  glyphQueue.update(deltaTime, globalTime, audioData, silenceWeight, userFingerprint);
+  // Replenish BEFORE the queue update, so a replacement symbol is already in
+  // place before a decaying one is removed. Checking afterwards would let the
+  // field dip below the protocol minimum for a frame.
+  //
+  // The cadence timer stays authoritative for rhythm: a demand-driven add
+  // must not push the next scheduled add further away.
+  if (glyphQueue.needsReplenishment()) {
+    addRandomGlyph({ scheduleNext: false });
+  }
+
+  // Update glyph queue and individual glyphs. The influence is passed down so
+  // each glyph's MOTION is biased by sound, weighted by that glyph's family
+  // and its own semantic weight - not just the field as a whole.
+  glyphQueue.update(deltaTime, globalTime, audioData, silenceWeight, userFingerprint, influence);
 
   // Update renderer global uniforms (e.g., uTime, uAudio, uWarp, uBreath, uColorA, uColorB)
   if (renderer) {
@@ -239,7 +311,8 @@ function animate(time = 0) {
     });
   }
 
-  // Add new glyphs based on time
+  // Add new glyphs based on time. The cadence sets the rhythm of the ritual;
+  // the demand-driven check above guarantees the overlap minimum.
   if (globalTime >= nextGlyphTime) {
     addRandomGlyph();
   }
